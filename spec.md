@@ -1,42 +1,54 @@
 # Anthropocene Portfolio
 
 ## Current State
-- Home page has a static hero with Playfair Display "Anthropocene" title, body copy, and a bottom-docked horizontal navigation bar with three NavLink items
-- Video tag exists but with empty `src` and no masking
-- No custom cursor, no mouse-tracking, no masking effect
-- Background is a dark stone gradient (~#1A1A1A) with grain overlay
-- App has four routes: `/`, `/design`, `/art`, `/research`
-- `motion` (Framer Motion v12) and `lucide-react` already installed
+Full-stack Vite + React + Tailwind + Framer Motion project with:
+- Home page with WebGL video mask, custom cursor, floating CTAs
+- /faculty, /faculty/lectures, /faculty/students-works, /faculty/portfolio routes
+- /art-practice WebGL melting gallery (React Three Fiber)
+- CursorContext and VisibilityContext providers
+- AnthropoceneAnchor component (top-left nav link back to /)
+- TanStack Router for all routing with AnimatePresence page transitions
+- No authentication or admin UI exists
 
 ## Requested Changes (Diff)
 
 ### Add
-- **CustomCursor component** — global, tracks `clientX/clientY` via `useMotionValue` + `useSpring`. Renders a small Stone Dust dot. Initially shows floating label "Click to enable sound & reveal". After click, label fades out and cursor shrinks to a plain dot. Cursor turns Laterite Red when hovering a floating CTA.
-- **Video masking engine** — video src set to the Cloudinary URL. Wrapped in `motion.div` with `WebkitMaskImage` driven by `useMotionTemplate`. Initial `maskSize = 200px` creating flashlight effect. On click, `maskSize` animates to `3000px` (full reveal). Video starts `muted={true}`, unmutes on click.
-- **Floating CTA links** — three pure-text links replacing the bottom nav bar, positioned around the center title with continuous Framer Motion `animate` floating loops (y: [-15,15,-15], x: [-5,5,-5]) at durations 6s, 8s, 10s. Each has a unique offset from center. On hover: float pauses, cursor turns Laterite Red, text color shifts.
-- **Pitch black base** — `body` and page background forced to `#000000`.
-- **`cursor: none` globally** applied to `*` in CSS.
-- **Mobile handling** — on touch devices, page starts fully revealed (maskSize jumps to 3000px immediately, no flashlight effect).
+- `/admin` route: brutalist login page (pitch black bg, centered email+password form, "Enter" button)
+- `/admin/dashboard` route: sidebar + main content area dashboard mockup
+- AdminLogin page component
+- AdminDashboard page component
+- Two new routes registered in App.tsx (adminRoute, adminDashboardRoute)
 
 ### Modify
-- `Home.tsx` — complete rewrite: remove bottom nav bar and static hero body copy. Retain centered "Anthropocene" title (fixed, high z-index). Wire video src, masking logic, and floating CTAs.
-- `index.css` — set `body` background to `#000000`, add `cursor: none` globally.
-- `App.tsx` — mount `CustomCursor` outside `<Routes>` so it persists across pages.
+- App.tsx: register the two new admin routes in the route tree
 
 ### Remove
-- Bottom-docked `NavLink` component usage from Home page (the three links move to floating positions)
-- Static body copy and divider from hero center
+- Nothing
 
 ## Implementation Plan
-1. Update `index.css`: set body background to `#000000`, add `* { cursor: none; }`.
-2. Create `src/components/CustomCursor.tsx`: useMotionValue + useSpring for x/y, renders animated dot + label text, accepts `isRevealed` and `isHoveringCTA` props via context or ref.
-3. Create `src/context/CursorContext.tsx`: shares `isRevealed`, `isHoveringCTA` state across components.
-4. Rewrite `src/pages/Home.tsx`:
-   - Full-screen video with Cloudinary src, autoPlay, loop, playsInline, muted state
-   - `motion.div` video wrapper with `WebkitMaskImage` via `useMotionTemplate`
-   - Mouse tracking with `useMotionValue` + `useSpring`
-   - `maskSize` as motion value, animates 200 → 3000 on click
-   - Touch detection: if touch device, skip to full reveal on mount
-   - Fixed centered "Anthropocene" serif title (z-index high)
-   - Three floating motion.a/Link elements positioned around center, continuous float animation, hover pause
-5. Update `App.tsx` to wrap with `CursorProvider` and render `<CustomCursor />` globally.
+1. Create `src/frontend/src/pages/AdminLogin.tsx`
+   - Pitch black (#000000) background, full screen
+   - Centered form: "Email" input, "Password" input
+   - "Enter" button: default muted border style, Laterite Red (#8C3A3A) bg on hover
+   - Brutalist aesthetic: monospaced or stark sans-serif labels, minimal spacing, no rounded corners
+   - On click "Enter" → navigate to /admin/dashboard (useNavigate)
+   - Custom cursor text cleared (no "Click to enable sound" bleed)
+   - data-ocid markers on all form inputs and button
+
+2. Create `src/frontend/src/pages/AdminDashboard.tsx`
+   - Full-height flex layout: sidebar (left) + main content (right)
+   - Sidebar: Granite Grey (#1a1a1a) bg, fixed width ~220px
+     - App title/logo area at top
+     - Nav links: "Manage Lectures", "Manage Students Works", "Manage Art Portfolio"
+     - Active link state in Laterite Red
+   - Main content: pitch black bg
+     - Header: "Anthropocene Control Panel" in large Stone Dust typography
+     - Prominent "+ Add New Entry" button in Laterite Red (#8C3A3A)
+   - data-ocid markers on sidebar links and action button
+
+3. Register routes in App.tsx:
+   - adminRoute: path "/admin" → AdminLogin
+   - adminDashboardRoute: path "/admin/dashboard" → AdminDashboard
+   - Add both to routeTree
+
+4. Admin pages should NOT render the global CustomCursor "Click to enable sound" text — cursor context should be in default/dot state on these routes

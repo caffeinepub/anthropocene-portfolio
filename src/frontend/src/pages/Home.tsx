@@ -263,7 +263,7 @@ export function Home() {
 
         {/* ── Floating CTAs ──────────────────────────────────────── */}
         <FloatingLink
-          to="/design"
+          to="/faculty"
           text="Anthropocene: Design Faculty & Design Portfolio"
           duration={6}
           ocid="home.nav.link.1"
@@ -272,7 +272,7 @@ export function Home() {
         />
 
         <FloatingLink
-          to="/art"
+          to="/art-practice"
           text="Anthropocene: Art Practice"
           duration={8}
           ocid="home.nav.link.2"

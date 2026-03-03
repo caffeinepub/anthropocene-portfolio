@@ -3,7 +3,8 @@ import { useEffect } from "react";
 import { useCursor } from "../context/CursorContext";
 
 export function CustomCursor() {
-  const { isRevealed, isHoveringCTA } = useCursor();
+  const { isRevealed, isHoveringCTA, cursorLabel, suppressDefaultLabel } =
+    useCursor();
   const cursorX = useMotionValue(-100);
   const cursorY = useMotionValue(-100);
   const springX = useSpring(cursorX, { stiffness: 500, damping: 40 });
@@ -20,6 +21,16 @@ export function CustomCursor() {
 
   const dotSize = isRevealed ? 6 : 10;
   const dotColor = isHoveringCTA ? "#8C3A3A" : "#E5E0D8";
+
+  // Label visibility logic:
+  // - cursorLabel set → always show it
+  // - suppressDefaultLabel → never show the default "Click to enable sound" label
+  // - no cursorLabel, not revealed, not suppressed → show default label
+  // - no cursorLabel, revealed → hide
+  const showDefaultLabel = !isRevealed && !cursorLabel && !suppressDefaultLabel;
+  const showCustomLabel = !!cursorLabel;
+  const labelVisible = showDefaultLabel || showCustomLabel;
+  const labelText = cursorLabel || "Click to enable sound & reveal";
 
   return (
     <motion.div
@@ -45,9 +56,8 @@ export function CustomCursor() {
       />
       {/* Label */}
       <motion.span
-        initial={{ opacity: 1 }}
-        animate={{ opacity: isRevealed ? 0 : 1 }}
-        transition={{ duration: 0.8 }}
+        animate={{ opacity: labelVisible ? 1 : 0 }}
+        transition={{ duration: 0.4 }}
         style={{
           position: "absolute",
           top: "50%",
@@ -56,12 +66,14 @@ export function CustomCursor() {
           fontFamily: "Inter, system-ui, sans-serif",
           fontSize: "11px",
           letterSpacing: "0.12em",
-          color: "rgba(229, 224, 216, 0.7)",
+          color: showCustomLabel
+            ? "rgba(229, 224, 216, 0.9)"
+            : "rgba(229, 224, 216, 0.7)",
           whiteSpace: "nowrap",
           pointerEvents: "none",
         }}
       >
-        Click to enable sound & reveal
+        {labelText}
       </motion.span>
     </motion.div>
   );
