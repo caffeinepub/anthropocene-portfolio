@@ -93,6 +93,7 @@ function FloatingLink({ to, text, duration, style, ocid }: FloatingLinkProps) {
 }
 
 export function Home() {
+  const navigate = useNavigate();
   const videoRef = useRef<HTMLVideoElement>(null);
   const { setIsRevealed } = useCursor();
   const [hasRevealed, setHasRevealed] = useState(false);
@@ -288,6 +289,45 @@ export function Home() {
           index={3}
           style={{ top: "42%", left: "55%" }}
         />
+      </div>
+
+      {/* ── View Research link ────────────────────────────────────── */}
+      <div
+        style={{
+          position: "fixed",
+          bottom: "3.5rem",
+          left: "50%",
+          transform: "translateX(-50%)",
+          zIndex: 15,
+        }}
+      >
+        <button
+          type="button"
+          data-ocid="home.research.link"
+          onClick={() => void navigate({ to: "/research" })}
+          style={{
+            background: "none",
+            border: "none",
+            fontFamily: "Inter, system-ui, sans-serif",
+            fontSize: "9px",
+            letterSpacing: "0.28em",
+            textTransform: "uppercase",
+            color: "rgba(229,224,216,0.3)",
+            cursor: "none",
+            padding: "0.5rem",
+            transition: "color 0.3s ease",
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.color =
+              "rgba(229,224,216,0.7)";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.color =
+              "rgba(229,224,216,0.3)";
+          }}
+        >
+          View Research →
+        </button>
       </div>
 
       {/* ── Footer attribution ────────────────────────────────────── */}

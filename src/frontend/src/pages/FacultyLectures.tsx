@@ -10,27 +10,9 @@ import { useEffect, useRef, useState } from "react";
 import { AnthropoceneAnchor } from "../components/AnthropoceneAnchor";
 import { FacultySubNav } from "../components/FacultySubNav";
 import { useCursor } from "../context/CursorContext";
+import { getBackend } from "../utils/getBackend";
 
 const GRAIN_SVG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`;
-
-const LECTURES = [
-  {
-    id: "what-is-a-website",
-    title: "What is a Website?",
-    prototypeUrl: "https://bounce-radio-93063170.figma.site",
-    description:
-      "In this 40-minute session, we demystified how websites work by grounding digital concepts in the physical world. I compared online presence to physical retail: just as sellers lease shops or showrooms to display goods, we purchase domains to secure our 'digital real estate.' This analogy helped students understand a website as a cultivated, presentable space for the virtual world.",
-    duration: "40 min · Live session",
-  },
-  {
-    id: "what-is-auto-layout",
-    title: "What is Auto Layout?",
-    prototypeUrl: "https://jasper-casual-34052988.figma.site",
-    description:
-      "During our web and desktop design course, students consistently struggled with Figma's Auto Layout. To help them work faster and more efficiently, I hosted a focused 40-minute live demonstration session. This hands-on workshop broke down exactly what Auto Layout is and why it's essential, giving students the practical skills to instantly streamline their design workflows.",
-    duration: "40 min · Live session",
-  },
-];
 
 const AI_RESPONSES = [
   "The quarry remembers every extraction. What does the material want to become?",
@@ -603,8 +585,6 @@ function CursorReset() {
   const { setIsRevealed, setCursorLabel, setSuppressDefaultLabel } =
     useCursor();
   useEffect(() => {
-    // On /faculty routes: mark as revealed, clear any label, and suppress
-    // the default "Click to enable sound & reveal" text entirely.
     setIsRevealed(true);
     setCursorLabel("");
     setSuppressDefaultLabel(true);
@@ -616,7 +596,118 @@ function CursorReset() {
   return null;
 }
 
+// ─── Teaching Philosophy Card ──────────────────────────────────────────────────
+
+const TEACHING_PHILOSOPHY_TEXT =
+  "In an era of ecological shifting, I guide students beyond Human-Centred Design toward an Environment-Centred paradigm. I believe the digital world must mirror the biological one; thus, I bridge the \u201cknown to the unknown\u201d by using physical metaphors\u2014comparing a website\u2019s architecture to a physical shop to demystify complex systems. Recognising that every mind processes logic differently, I mentally meet each student at their current level. I adapt my technical explanations to fit their individual cognitive frameworks, ensuring that even the most abstract interaction design concepts become intuitive, grounded, and sustainably focused.";
+
+function TeachingPhilosophyCard() {
+  const words = TEACHING_PHILOSOPHY_TEXT.split(" ");
+
+  return (
+    <motion.div
+      data-ocid="lectures.teaching_philosophy.card"
+      initial={{ opacity: 0, y: 24 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 1.0, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+      style={{
+        background: "#000000",
+        border: "1px solid rgba(140,58,58,0.15)",
+        padding: "clamp(2rem, 4vw, 4rem)",
+        marginBottom: "4rem",
+        position: "relative",
+      }}
+    >
+      {/* Heading */}
+      <p
+        style={{
+          fontFamily: "Inter, system-ui, sans-serif",
+          fontSize: "10px",
+          letterSpacing: "0.35em",
+          textTransform: "uppercase",
+          color: "rgba(229,224,216,0.5)",
+          margin: "0 0 1rem 0",
+          fontWeight: 400,
+        }}
+      >
+        Teaching Philosophy
+      </p>
+
+      {/* Rule */}
+      <div
+        style={{
+          width: "100%",
+          height: "1px",
+          background: "rgba(140,58,58,0.2)",
+          marginBottom: "1.8rem",
+        }}
+      />
+
+      {/* Word-by-word body text */}
+      <p
+        style={{
+          fontFamily: '"Playfair Display", Georgia, serif',
+          fontSize: "clamp(13px, 1.1vw, 15px)",
+          color: "rgba(229,224,216,0.82)",
+          lineHeight: 1.85,
+          margin: 0,
+          letterSpacing: "0.01em",
+        }}
+      >
+        {words.map((word, i) => (
+          <motion.span
+            // biome-ignore lint/suspicious/noArrayIndexKey: static text, order never changes
+            key={i}
+            style={{
+              display: "inline-block",
+              marginRight: "0.28em",
+              lineHeight: 1.85,
+              position: "relative",
+              cursor: "default",
+              color: "rgba(229,224,216,0.82)",
+            }}
+            whileHover={{ scale: 1.05, zIndex: 10 }}
+            transition={{
+              type: "spring",
+              stiffness: 200,
+              damping: 28,
+              duration: 0.4,
+            }}
+          >
+            {word}
+          </motion.span>
+        ))}
+      </p>
+    </motion.div>
+  );
+}
+
 export function FacultyLectures() {
+  const [lectures, setLectures] = useState<LectureData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    getBackend()
+      .then((b) => b.listLiveLectures())
+      .then((items) => {
+        const mapped: LectureData[] = items.map((item) => ({
+          id: String(item.id),
+          title: item.title,
+          prototypeUrl: item.prototypeUrl,
+          description: item.description,
+          duration: item.duration,
+        }));
+        setLectures(mapped);
+      })
+      .catch(() => {
+        // Fallback to empty — UI shows "No lectures published yet"
+        setLectures([]);
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, []);
+
   return (
     <div
       data-ocid="lectures.page"
@@ -659,6 +750,9 @@ export function FacultyLectures() {
           zIndex: 5,
         }}
       >
+        {/* Teaching Philosophy card — permanent editorial header */}
+        <TeachingPhilosophyCard />
+
         {/* Module header */}
         <motion.div
           initial={{ opacity: 0, y: 24 }}
@@ -693,18 +787,69 @@ export function FacultyLectures() {
           </h1>
         </motion.div>
 
+        {/* Loading state */}
+        {isLoading && (
+          <motion.div
+            data-ocid="lectures.loading_state"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            style={{ display: "flex", flexDirection: "column", gap: "4rem" }}
+          >
+            {[1, 2].map((n) => (
+              <div
+                key={n}
+                style={{
+                  height: "560px",
+                  background: "rgba(229,224,216,0.03)",
+                  borderRadius: "6px",
+                  border: "1px solid rgba(229,224,216,0.05)",
+                }}
+              />
+            ))}
+          </motion.div>
+        )}
+
+        {/* Empty state */}
+        {!isLoading && lectures.length === 0 && (
+          <motion.div
+            data-ocid="lectures.empty_state"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            style={{
+              padding: "6rem 0",
+              textAlign: "center",
+            }}
+          >
+            <p
+              style={{
+                fontFamily: "Inter, system-ui, sans-serif",
+                fontSize: "10px",
+                letterSpacing: "0.3em",
+                textTransform: "uppercase",
+                color: "rgba(229,224,216,0.2)",
+                margin: 0,
+              }}
+            >
+              No lectures published yet
+            </p>
+          </motion.div>
+        )}
+
         {/* Card list */}
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "6rem",
-          }}
-        >
-          {LECTURES.map((lecture, index) => (
-            <StudioCard key={lecture.id} lecture={lecture} index={index} />
-          ))}
-        </div>
+        {!isLoading && lectures.length > 0 && (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "6rem",
+            }}
+          >
+            {lectures.map((lecture, index) => (
+              <StudioCard key={lecture.id} lecture={lecture} index={index} />
+            ))}
+          </div>
+        )}
       </main>
 
       {/* Ecology AI floating chat */}

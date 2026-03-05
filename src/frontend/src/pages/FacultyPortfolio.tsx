@@ -1,225 +1,638 @@
-import { Eye, EyeOff } from "lucide-react";
-import { motion } from "motion/react";
+import { Maximize2, Minimize2, X } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import { useEffect, useState } from "react";
 import { AnthropoceneAnchor } from "../components/AnthropoceneAnchor";
 import { FacultySubNav } from "../components/FacultySubNav";
-import { useVisibility } from "../context/VisibilityContext";
+import { getBackend } from "../utils/getBackend";
+
+// ─── Professional Narrative Card ──────────────────────────────────────────────
+
+const DEFAULT_NARRATIVE =
+  "I am a multidisciplinary design educator and art practitioner working across printmaking, interaction design, and ecological performance. Currently, I serve as an Assistant Professor of Interaction Design at KMCT School of Design, Kerala, where I teach UX research and UI fundamentals. Previously, I was the Design Head at PrepLadder (Unacademy), leading a creative team of 16 in illustration and animation. I hold a Master of Fine Arts and a Bachelor of Fine Arts in Printmaking and Design from the Government College of Art, Chandigarh. My practice is recognized internationally, supported by a Venice Biennale Travel Grant and a MAIR Residency Fellowship in 2024. I specialize in bridging traditional mediums like Etching and Pottery with digital mastery in Figma and the Adobe Creative Suite.";
+
+function NarrativeWordSplit({ text }: { text: string }) {
+  const words = text.split(" ");
+  return (
+    <>
+      {words.map((word, i) => (
+        <motion.span
+          // biome-ignore lint/suspicious/noArrayIndexKey: static text, order never changes
+          key={i}
+          style={{
+            display: "inline-block",
+            marginRight: "0.28em",
+            lineHeight: 1.85,
+            position: "relative",
+            cursor: "default",
+            color: "rgba(229,224,216,0.82)",
+          }}
+          whileHover={{ scale: 1.05, zIndex: 10 }}
+          transition={{
+            type: "spring",
+            stiffness: 200,
+            damping: 28,
+            duration: 0.4,
+          }}
+        >
+          {word}
+        </motion.span>
+      ))}
+    </>
+  );
+}
+
+// ─── CV Modal ─────────────────────────────────────────────────────────────────
+
+function CVModal({
+  cvLink,
+  onClose,
+}: {
+  cvLink: string;
+  onClose: () => void;
+}) {
+  // Escape key to close
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  // Build iframe src: append ?hide_ui=1 for Figma URLs
+  const iframeSrc = (() => {
+    if (cvLink.includes("figma.site") || cvLink.includes("figma.com")) {
+      return cvLink.includes("hide_ui=1")
+        ? cvLink
+        : `${cvLink}${cvLink.includes("?") ? "&" : "?"}hide_ui=1`;
+    }
+    return cvLink;
+  })();
+
+  return (
+    <motion.div
+      data-ocid="portfolio.cv.modal"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.25, ease: "easeOut" }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 200,
+        background: "rgba(0,0,0,0.95)",
+        display: "flex",
+        alignItems: "stretch",
+        justifyContent: "stretch",
+      }}
+    >
+      {/* Close button */}
+      <button
+        type="button"
+        data-ocid="portfolio.cv.close_button"
+        onClick={onClose}
+        aria-label="Close CV overlay"
+        style={{
+          position: "absolute",
+          top: "1.5rem",
+          right: "1.5rem",
+          zIndex: 210,
+          background: "none",
+          border: "none",
+          padding: "0.4rem",
+          cursor: "default",
+          color: "rgba(229,224,216,0.7)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          lineHeight: 0,
+          transition: "color 0.2s ease",
+        }}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLButtonElement).style.color = "#8C3A3A";
+        }}
+        onMouseLeave={(e) => {
+          (e.currentTarget as HTMLButtonElement).style.color =
+            "rgba(229,224,216,0.7)";
+        }}
+      >
+        <X size={24} strokeWidth={1.5} />
+      </button>
+
+      {/* iframe */}
+      <iframe
+        src={iframeSrc}
+        title="Curriculum Vitae"
+        style={{
+          width: "100%",
+          height: "100%",
+          border: "none",
+          display: "block",
+        }}
+        allow="fullscreen"
+      />
+    </motion.div>
+  );
+}
+
+// ─── Professional Narrative Card ──────────────────────────────────────────────
+
+function ProfessionalNarrativeCard() {
+  const [narrative, setNarrative] = useState<string | null>(null);
+  const [cvLink, setCvLink] = useState<string>("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [showCVModal, setShowCVModal] = useState(false);
+  const [isCVButtonHovered, setIsCVButtonHovered] = useState(false);
+
+  useEffect(() => {
+    getBackend()
+      .then((b) => Promise.all([b.getProfessionalNarrative(), b.getCvLink()]))
+      .then(([text, link]) => {
+        setNarrative(text?.trim() ? text : DEFAULT_NARRATIVE);
+        setCvLink(link?.trim() ?? "");
+      })
+      .catch(() => {
+        setNarrative(DEFAULT_NARRATIVE);
+        setCvLink("");
+      })
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  return (
+    <>
+      <motion.div
+        data-ocid="portfolio.narrative.card"
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 1.0, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+        style={{
+          background: "#000000",
+          border: "1px solid rgba(140,58,58,0.15)",
+          padding: "clamp(2rem, 4vw, 4rem)",
+          marginBottom: "4rem",
+          position: "relative",
+        }}
+      >
+        {/* Heading */}
+        <p
+          style={{
+            fontFamily: "Inter, system-ui, sans-serif",
+            fontSize: "10px",
+            letterSpacing: "0.35em",
+            textTransform: "uppercase",
+            fontVariant: "small-caps",
+            color: "rgba(229,224,216,0.5)",
+            margin: "0 0 1rem 0",
+            fontWeight: 400,
+          }}
+        >
+          Professional Narrative
+        </p>
+
+        {/* Rule */}
+        <div
+          style={{
+            width: "100%",
+            height: "1px",
+            background: "rgba(140,58,58,0.2)",
+            marginBottom: "1.8rem",
+          }}
+        />
+
+        {/* Body */}
+        {isLoading ? (
+          <div
+            data-ocid="portfolio.narrative.loading_state"
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "0.6rem",
+            }}
+          >
+            {[100, 85, 92, 78].map((w, i) => (
+              <div
+                // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton
+                key={i}
+                style={{
+                  height: "14px",
+                  width: `${w}%`,
+                  background: "rgba(229,224,216,0.04)",
+                  borderRadius: "1px",
+                }}
+              />
+            ))}
+          </div>
+        ) : (
+          <p
+            style={{
+              fontFamily: '"Playfair Display", Georgia, serif',
+              fontSize: "clamp(13px, 1.1vw, 15px)",
+              color: "rgba(229,224,216,0.82)",
+              lineHeight: 1.85,
+              margin: 0,
+              letterSpacing: "0.01em",
+            }}
+          >
+            <NarrativeWordSplit text={narrative ?? DEFAULT_NARRATIVE} />
+          </p>
+        )}
+
+        {/* CV Button — always visible; clicking opens modal if link is set */}
+        {!isLoading && (
+          <div
+            style={{
+              marginTop: "2.25rem",
+              paddingTop: "1.5rem",
+              borderTop: "1px solid rgba(229,224,216,0.06)",
+              display: "flex",
+              justifyContent: "center",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "0.5rem",
+            }}
+          >
+            <button
+              type="button"
+              data-ocid="portfolio.cv.open_modal_button"
+              onClick={() => {
+                if (cvLink) {
+                  setShowCVModal(true);
+                }
+              }}
+              onMouseEnter={() => setIsCVButtonHovered(true)}
+              onMouseLeave={() => setIsCVButtonHovered(false)}
+              style={{
+                background: "none",
+                border: `1px solid ${isCVButtonHovered ? "rgba(229,224,216,0.85)" : "rgba(229,224,216,0.35)"}`,
+                padding: "0.6rem 1.6rem",
+                fontFamily: "Inter, system-ui, sans-serif",
+                fontSize: "9px",
+                letterSpacing: "0.3em",
+                textTransform: "uppercase",
+                color: "#E5E0D8",
+                cursor: "default",
+                borderRadius: "0",
+                transition: "border-color 0.3s ease, box-shadow 0.3s ease",
+                boxShadow: isCVButtonHovered
+                  ? "0 0 12px rgba(229,224,216,0.12)"
+                  : "none",
+                opacity: cvLink ? 1 : 0.45,
+              }}
+            >
+              Press for detailed CV
+            </button>
+            {!cvLink && (
+              <p
+                style={{
+                  fontFamily: "Inter, system-ui, sans-serif",
+                  fontSize: "8px",
+                  letterSpacing: "0.2em",
+                  textTransform: "uppercase",
+                  color: "rgba(229,224,216,0.2)",
+                  margin: 0,
+                }}
+              >
+                CV link not set — add it via admin dashboard
+              </p>
+            )}
+          </div>
+        )}
+      </motion.div>
+
+      {/* CV Modal */}
+      <AnimatePresence>
+        {showCVModal && (
+          <CVModal cvLink={cvLink} onClose={() => setShowCVModal(false)} />
+        )}
+      </AnimatePresence>
+    </>
+  );
+}
 
 const GRAIN_SVG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`;
 
-const PORTFOLIO_ITEMS = [
-  {
-    id: "p-1",
-    title: "Quarry Identity System",
-    client: "Self-initiated",
-    year: "2024",
-    tags: ["Identity", "Print"],
-    color: "#1A1410",
-  },
-  {
-    id: "p-2",
-    title: "Kerala Backwaters Wayfinding",
-    client: "Tourism Board",
-    year: "2023",
-    tags: ["Wayfinding", "Spatial"],
-    color: "#0F1418",
-  },
-  {
-    id: "p-3",
-    title: "Laterite Typographic System",
-    client: "Kochi Biennale",
-    year: "2024",
-    tags: ["Typography", "Identity"],
-    color: "#1C1410",
-  },
-  {
-    id: "p-4",
-    title: "Pedagogical Framework",
-    client: "Design Faculty",
-    year: "2023",
-    tags: ["Systems", "Education"],
-    color: "#141414",
-  },
-  {
-    id: "p-5",
-    title: "Erosion Series",
-    client: "Self-initiated",
-    year: "2022",
-    tags: ["Print", "Material"],
-    color: "#18141A",
-  },
-  {
-    id: "p-6",
-    title: "Post-Colonial Spatial Grammar",
-    client: "Research Lab",
-    year: "2024",
-    tags: ["Spatial", "Research"],
-    color: "#121A14",
-  },
-  {
-    id: "p-7",
-    title: "Tidal Interface Patterns",
-    client: "CEPT University",
-    year: "2023",
-    tags: ["Digital", "Patterns"],
-    color: "#14181A",
-  },
-  {
-    id: "p-8",
-    title: "Invisible Cities Atlas",
-    client: "Self-initiated",
-    year: "2022",
-    tags: ["Editorial", "Spatial"],
-    color: "#1A1A1C",
-  },
+// Cycle of card background colors — same as original design
+const CARD_COLORS = [
+  "#1A1410",
+  "#0F1418",
+  "#1C1410",
+  "#141414",
+  "#18141A",
+  "#121A14",
+  "#14181A",
+  "#1A1A1C",
 ];
 
+interface PortfolioItemDisplay {
+  id: string;
+  title: string;
+  client: string;
+  year: string;
+  tags: string[];
+  color: string;
+  figmaUrl: string;
+  imageData: string;
+  videoUrl: string;
+  description: string;
+}
+
 interface PortfolioCardProps {
-  item: (typeof PORTFOLIO_ITEMS)[0];
+  item: PortfolioItemDisplay;
   index: number;
 }
 
+// ─── Media renderer — picks the right element based on what's populated ───────
+
+function PortfolioMediaZone({
+  figmaUrl,
+  imageData,
+  videoUrl,
+  title,
+}: {
+  figmaUrl: string;
+  imageData: string;
+  videoUrl: string;
+  title: string;
+}) {
+  if (figmaUrl) {
+    const src = figmaUrl.includes("hide_ui=1")
+      ? figmaUrl
+      : `${figmaUrl}${figmaUrl.includes("?") ? "&" : "?"}hide_ui=1`;
+    return (
+      <iframe
+        src={src}
+        title={`${title} — Prototype`}
+        allowFullScreen
+        style={{
+          width: "100%",
+          height: "100%",
+          minHeight: "240px",
+          border: "none",
+          display: "block",
+          background: "#0a0a0a",
+        }}
+      />
+    );
+  }
+  if (imageData) {
+    return (
+      <img
+        src={imageData}
+        alt={title}
+        style={{
+          width: "100%",
+          height: "100%",
+          minHeight: "200px",
+          objectFit: "contain",
+          display: "block",
+        }}
+      />
+    );
+  }
+  if (videoUrl) {
+    return (
+      <video
+        src={videoUrl}
+        autoPlay
+        loop
+        muted
+        playsInline
+        aria-label={`${title} — design portfolio video`}
+        style={{
+          width: "100%",
+          height: "100%",
+          minHeight: "200px",
+          objectFit: "cover",
+          display: "block",
+        }}
+      />
+    );
+  }
+  return null;
+}
+
 function PortfolioCard({ item, index }: PortfolioCardProps) {
-  const { isVisible, toggleVisibility } = useVisibility();
-  const visible = isVisible(item.id);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const hasMedia = !!(item.figmaUrl || item.imageData || item.videoUrl);
 
   return (
     <motion.div
       data-ocid={`portfolio.card.item.${index + 1}`}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ scale: 1.02, y: 4 }}
       transition={{
         duration: 0.6,
         delay: 0.08 * index,
         ease: [0.16, 1, 0.3, 1],
-        scale: { type: "spring", stiffness: 120, damping: 18, delay: 0 },
-        y: { type: "spring", stiffness: 120, damping: 18, delay: 0 },
       }}
       style={{
         backgroundColor: item.color,
-        minHeight: "280px",
-        borderRadius: "2px",
         border: "1px solid rgba(229,224,216,0.06)",
         position: "relative",
         overflow: "hidden",
-        cursor: "none",
+        cursor: "default",
+        minHeight: "320px",
       }}
     >
-      {/* Private overlay */}
-      {!visible && (
-        <div
+      {/* Card header — title, client, year, tags */}
+      <div
+        style={{
+          padding: "1.5rem 1.5rem 1rem",
+          borderBottom: "1px solid rgba(229,224,216,0.05)",
+        }}
+      >
+        <p
           style={{
-            position: "absolute",
-            inset: 0,
-            background: "rgba(0,0,0,0.72)",
-            zIndex: 5,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
+            fontFamily: '"Playfair Display", Georgia, serif',
+            fontStyle: "italic",
+            fontWeight: 700,
+            fontSize: "clamp(17px, 1.8vw, 22px)",
+            color: "#E5E0D8",
+            margin: "0 0 0.3rem",
+            lineHeight: 1.2,
           }}
         >
-          <p
+          {item.title}
+        </p>
+        <p
+          style={{
+            fontFamily: "Inter, system-ui, sans-serif",
+            fontSize: "11px",
+            color: "rgba(229,224,216,0.4)",
+            margin: "0 0 0.6rem",
+          }}
+        >
+          {item.client} — {item.year}
+        </p>
+        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+          {item.tags.map((tag) => (
+            <span
+              key={tag}
+              style={{
+                fontFamily: "Inter, system-ui, sans-serif",
+                fontSize: "9px",
+                letterSpacing: "0.18em",
+                textTransform: "uppercase",
+                color: "rgba(229,224,216,0.28)",
+              }}
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Split body — only when media is present */}
+      {hasMedia && (
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            minHeight: "260px",
+          }}
+        >
+          {/* Left — media zone (65% → 100% when expanded) */}
+          <motion.div
+            animate={{ width: isExpanded ? "100%" : "65%" }}
+            transition={{ duration: 0.5, ease: "easeInOut" }}
             style={{
-              fontFamily: "Inter, system-ui, sans-serif",
-              fontSize: "9px",
-              letterSpacing: "0.3em",
-              textTransform: "uppercase",
-              color: "rgba(229,224,216,0.3)",
+              position: "relative",
+              overflow: "hidden",
+              flexShrink: 0,
+              background: "#0a0a0a",
+              minHeight: "260px",
             }}
           >
-            Private
-          </p>
+            {/* Expand/collapse toggle — top right of media zone */}
+            <button
+              type="button"
+              data-ocid={`portfolio.card.toggle.${index + 1}`}
+              onClick={() => setIsExpanded((prev) => !prev)}
+              style={{
+                position: "absolute",
+                top: "0.75rem",
+                right: "0.75rem",
+                zIndex: 10,
+                background: "rgba(10,10,10,0.6)",
+                backdropFilter: "blur(8px)",
+                WebkitBackdropFilter: "blur(8px)",
+                border: "none",
+                borderRadius: "9999px",
+                padding: "0.4rem",
+                color: "#E5E0D8",
+                cursor: "default",
+                lineHeight: 0,
+                transition: "background-color 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+                  "#8C3A3A";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+                  "rgba(10,10,10,0.6)";
+              }}
+              aria-label={isExpanded ? "Collapse" : "Expand"}
+            >
+              {isExpanded ? (
+                <Minimize2 size={13} strokeWidth={1.5} />
+              ) : (
+                <Maximize2 size={13} strokeWidth={1.5} />
+              )}
+            </button>
+
+            <PortfolioMediaZone
+              figmaUrl={item.figmaUrl}
+              imageData={item.imageData}
+              videoUrl={item.videoUrl}
+              title={item.title}
+            />
+          </motion.div>
+
+          {/* Right — description zone (35% → 0% when expanded) */}
+          <motion.div
+            animate={{
+              width: isExpanded ? "0%" : "35%",
+              opacity: isExpanded ? 0 : 1,
+            }}
+            transition={{ duration: 0.5, ease: "easeInOut" }}
+            style={{
+              overflow: "hidden",
+              flexShrink: 0,
+              background: "#8C3A3A",
+              minHeight: "260px",
+              padding: isExpanded ? "0" : "1.5rem",
+            }}
+          >
+            {item.description && (
+              <p
+                style={{
+                  fontFamily: '"Playfair Display", Georgia, serif',
+                  fontSize: "clamp(12px, 1vw, 14px)",
+                  color: "#E5E0D8",
+                  lineHeight: 1.8,
+                  margin: 0,
+                  opacity: 0.92,
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                {item.description}
+              </p>
+            )}
+          </motion.div>
         </div>
       )}
 
-      {/* Eye toggle */}
-      <button
-        type="button"
-        data-ocid={`portfolio.card.toggle.${index + 1}`}
-        onClick={() => toggleVisibility(item.id)}
-        style={{
-          position: "absolute",
-          top: "1rem",
-          right: "1rem",
-          zIndex: 10,
-          background: "none",
-          border: "none",
-          padding: "0",
-          cursor: "none",
-          color: "rgba(229,224,216,0.4)",
-          transition: "color 0.2s ease",
-          lineHeight: 0,
-        }}
-        onMouseEnter={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.color =
-            "rgba(229,224,216,1)";
-        }}
-        onMouseLeave={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.color =
-            "rgba(229,224,216,0.4)";
-        }}
-      >
-        {visible ? <Eye size={14} /> : <EyeOff size={14} />}
-      </button>
-
-      {/* Card content */}
-      <div
-        style={{
-          padding: "1.75rem 1.5rem",
-          display: "flex",
-          flexDirection: "column",
-          height: "100%",
-          minHeight: "280px",
-          justifyContent: "flex-end",
-        }}
-      >
-        <div style={{ marginTop: "auto" }}>
+      {/* If no media but has description — show description below header */}
+      {!hasMedia && item.description && (
+        <div style={{ padding: "1.25rem 1.5rem", background: "#8C3A3A" }}>
           <p
             style={{
               fontFamily: '"Playfair Display", Georgia, serif',
-              fontStyle: "italic",
-              fontWeight: 700,
-              fontSize: "clamp(17px, 1.8vw, 22px)",
+              fontSize: "clamp(12px, 1vw, 14px)",
               color: "#E5E0D8",
-              margin: "0 0 0.4rem",
-              lineHeight: 1.2,
+              lineHeight: 1.8,
+              margin: 0,
             }}
           >
-            {item.title}
+            {item.description}
           </p>
-          <p
-            style={{
-              fontFamily: "Inter, system-ui, sans-serif",
-              fontSize: "11px",
-              color: "rgba(229,224,216,0.4)",
-              margin: "0 0 0.75rem",
-            }}
-          >
-            {item.client} — {item.year}
-          </p>
-          <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
-            {item.tags.map((tag) => (
-              <span
-                key={tag}
-                style={{
-                  fontFamily: "Inter, system-ui, sans-serif",
-                  fontSize: "9px",
-                  letterSpacing: "0.18em",
-                  textTransform: "uppercase",
-                  color: "rgba(229,224,216,0.28)",
-                }}
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
         </div>
-      </div>
+      )}
     </motion.div>
   );
 }
 
 export function FacultyPortfolio() {
+  const [items, setItems] = useState<PortfolioItemDisplay[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    getBackend()
+      .then((b) => b.listLiveDesignPortfolio())
+      .then((data) => {
+        const mapped: PortfolioItemDisplay[] = data.map((item, i) => ({
+          id: String(item.id),
+          title: item.title,
+          client: item.client,
+          year: item.year,
+          tags: item.tags,
+          color: CARD_COLORS[i % CARD_COLORS.length],
+          figmaUrl: item.figmaUrl ?? "",
+          imageData: item.imageData ?? "",
+          videoUrl: item.videoUrl ?? "",
+          description: item.description ?? "",
+        }));
+        setItems(mapped);
+      })
+      .catch(() => {
+        setItems([]);
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, []);
+
   return (
     <div
       data-ocid="portfolio.page"
@@ -294,19 +707,74 @@ export function FacultyPortfolio() {
           </h1>
         </motion.div>
 
+        {/* Professional Narrative */}
+        <ProfessionalNarrativeCard />
+
+        {/* Loading state */}
+        {isLoading && (
+          <motion.div
+            data-ocid="portfolio.loading_state"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
+              gap: "1.5rem",
+            }}
+          >
+            {[1, 2, 3, 4].map((n) => (
+              <div
+                key={n}
+                style={{
+                  height: "280px",
+                  background: "rgba(229,224,216,0.03)",
+                  borderRadius: "2px",
+                  border: "1px solid rgba(229,224,216,0.05)",
+                }}
+              />
+            ))}
+          </motion.div>
+        )}
+
+        {/* Empty state */}
+        {!isLoading && items.length === 0 && (
+          <motion.div
+            data-ocid="portfolio.empty_state"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            style={{ padding: "6rem 0", textAlign: "center" }}
+          >
+            <p
+              style={{
+                fontFamily: "Inter, system-ui, sans-serif",
+                fontSize: "10px",
+                letterSpacing: "0.3em",
+                textTransform: "uppercase",
+                color: "rgba(229,224,216,0.2)",
+                margin: 0,
+              }}
+            >
+              No portfolio items published yet
+            </p>
+          </motion.div>
+        )}
+
         {/* Grid */}
-        <div
-          data-ocid="portfolio.card.list"
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-            gap: "1.5rem",
-          }}
-        >
-          {PORTFOLIO_ITEMS.map((item, i) => (
-            <PortfolioCard key={item.id} item={item} index={i} />
-          ))}
-        </div>
+        {!isLoading && items.length > 0 && (
+          <div
+            data-ocid="portfolio.card.list"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
+              gap: "1.5rem",
+            }}
+          >
+            {items.map((item, i) => (
+              <PortfolioCard key={item.id} item={item} index={i} />
+            ))}
+          </div>
+        )}
       </main>
 
       {/* Footer */}

@@ -2,6 +2,8 @@ import { useNavigate } from "@tanstack/react-router";
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { useCursor } from "../context/CursorContext";
+import { useAdminAuth } from "../hooks/useAdminAuth";
+import { useInternetIdentity } from "../hooks/useInternetIdentity";
 
 function CursorReset() {
   const { setIsRevealed, setCursorLabel, setSuppressDefaultLabel } =
@@ -20,13 +22,46 @@ function CursorReset() {
 
 export function AdminLogin() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
+  const { login } = useAdminAuth();
+  const { login: iiLogin, identity, isLoggingIn } = useInternetIdentity();
   const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [isHoveringBtn, setIsHoveringBtn] = useState(false);
+  // Track whether password was accepted and we're now awaiting II
+  const [awaitingII, setAwaitingII] = useState(false);
 
-  const handleEnter = () => {
-    navigate({ to: "/admin/dashboard" });
+  // Once II identity is ready after password was accepted, navigate to dashboard
+  useEffect(() => {
+    if (awaitingII && identity) {
+      navigate({ to: "/admin/dashboard" });
+    }
+  }, [awaitingII, identity, navigate]);
+
+  const handleEnter = async () => {
+    if (!password) {
+      setError("Please enter your password.");
+      return;
+    }
+    setError(null);
+    setIsLoading(true);
+    const success = await login(password);
+    if (!success) {
+      setIsLoading(false);
+      setError("Incorrect password.");
+      return;
+    }
+
+    // Password accepted — now trigger Internet Identity login
+    // to get an authenticated principal for backend calls.
+    // iiLogin() opens a popup and returns synchronously — do NOT await it.
+    // Navigation happens in the useEffect above when identity becomes available.
+    setAwaitingII(true);
+    setIsLoading(false);
+    iiLogin();
   };
+
+  const isButtonLoading = isLoading || isLoggingIn;
 
   return (
     <div
@@ -99,7 +134,7 @@ export function AdminLogin() {
             margin: 0,
           }}
         >
-          v0.1-alpha
+          v1.0 · ICP Backend
         </p>
       </div>
 
@@ -148,7 +183,9 @@ export function AdminLogin() {
               margin: 0,
             }}
           >
-            Restricted access
+            {awaitingII
+              ? "Opening Internet Identity..."
+              : "Enter password to continue"}
           </motion.p>
         </div>
 
@@ -159,56 +196,6 @@ export function AdminLogin() {
           transition={{ duration: 0.65, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
           style={{ display: "flex", flexDirection: "column", gap: "0" }}
         >
-          {/* Email field */}
-          <div style={{ marginBottom: "1.5rem" }}>
-            <label
-              htmlFor="admin-email"
-              style={{
-                display: "block",
-                fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
-                fontSize: "9px",
-                letterSpacing: "0.3em",
-                textTransform: "uppercase",
-                color: "rgba(229,224,216,0.4)",
-                marginBottom: "0.6rem",
-                cursor: "default",
-              }}
-            >
-              Email
-            </label>
-            <input
-              id="admin-email"
-              data-ocid="admin.email.input"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleEnter();
-              }}
-              style={{
-                width: "100%",
-                background: "transparent",
-                border: "1px solid rgba(229,224,216,0.18)",
-                borderRadius: "0",
-                padding: "0.875rem 1rem",
-                fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
-                fontSize: "13px",
-                color: "#E5E0D8",
-                outline: "none",
-                transition: "border-color 0.25s ease",
-                cursor: "text",
-                boxSizing: "border-box",
-              }}
-              onFocus={(e) => {
-                e.currentTarget.style.borderColor = "rgba(229,224,216,0.55)";
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.borderColor = "rgba(229,224,216,0.18)";
-              }}
-            />
-          </div>
-
           {/* Password field */}
           <div style={{ marginBottom: "2.5rem" }}>
             <label
@@ -236,9 +223,10 @@ export function AdminLogin() {
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleEnter();
               }}
+              disabled={awaitingII}
               style={{
                 width: "100%",
-                background: "transparent",
+                background: "#1a1a1a",
                 border: "1px solid rgba(229,224,216,0.18)",
                 borderRadius: "0",
                 padding: "0.875rem 1rem",
@@ -247,8 +235,9 @@ export function AdminLogin() {
                 color: "#E5E0D8",
                 outline: "none",
                 transition: "border-color 0.25s ease",
-                cursor: "text",
+                cursor: awaitingII ? "default" : "text",
                 boxSizing: "border-box",
+                opacity: awaitingII ? 0.5 : 1,
               }}
               onFocus={(e) => {
                 e.currentTarget.style.borderColor = "rgba(229,224,216,0.55)";
@@ -259,16 +248,66 @@ export function AdminLogin() {
             />
           </div>
 
+          {/* II waiting indicator */}
+          {awaitingII && isLoggingIn && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              style={{
+                marginBottom: "1.25rem",
+                padding: "0.875rem 1rem",
+                background: "rgba(229,224,216,0.03)",
+                border: "1px solid rgba(229,224,216,0.08)",
+              }}
+            >
+              <p
+                style={{
+                  fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                  fontSize: "9px",
+                  letterSpacing: "0.15em",
+                  color: "rgba(229,224,216,0.5)",
+                  margin: 0,
+                  lineHeight: 1.6,
+                }}
+              >
+                A login window has opened. Complete authentication there to
+                proceed. If the window didn't open, allow popups and try again.
+              </p>
+            </motion.div>
+          )}
+
+          {/* Error message */}
+          {error && (
+            <motion.p
+              data-ocid="admin.login.error_state"
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25 }}
+              style={{
+                fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                fontSize: "10px",
+                letterSpacing: "0.08em",
+                color: "#8C3A3A",
+                marginBottom: "1.25rem",
+                lineHeight: 1.5,
+              }}
+            >
+              {error}
+            </motion.p>
+          )}
+
           {/* Enter button */}
           <button
             type="button"
             data-ocid="admin.submit_button"
             onClick={handleEnter}
+            disabled={isButtonLoading}
             onMouseEnter={() => setIsHoveringBtn(true)}
             onMouseLeave={() => setIsHoveringBtn(false)}
             style={{
               width: "100%",
-              background: isHoveringBtn ? "#8C3A3A" : "transparent",
+              background:
+                isHoveringBtn && !isButtonLoading ? "#8C3A3A" : "transparent",
               border: "1px solid rgba(229,224,216,0.3)",
               borderRadius: "0",
               padding: "1rem",
@@ -276,31 +315,20 @@ export function AdminLogin() {
               fontSize: "10px",
               letterSpacing: "0.35em",
               textTransform: "uppercase",
-              color: "#E5E0D8",
+              color: isButtonLoading ? "rgba(229,224,216,0.35)" : "#E5E0D8",
               cursor: "default",
-              transition: "background 0.3s ease, border-color 0.3s ease",
+              transition:
+                "background 0.3s ease, border-color 0.3s ease, color 0.2s ease",
+              opacity: isButtonLoading ? 0.6 : 1,
             }}
           >
-            Enter
+            {isLoggingIn
+              ? "Opening Identity..."
+              : isLoading
+                ? "Verifying..."
+                : "Enter"}
           </button>
         </motion.div>
-
-        {/* Bottom hint */}
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.55 }}
-          style={{
-            fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
-            fontSize: "8px",
-            letterSpacing: "0.15em",
-            color: "rgba(229,224,216,0.15)",
-            textAlign: "center",
-            marginTop: "2rem",
-          }}
-        >
-          No auth active — visual prototype only
-        </motion.p>
       </motion.div>
 
       {/* Footer */}

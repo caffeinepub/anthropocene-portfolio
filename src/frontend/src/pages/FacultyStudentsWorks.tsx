@@ -1,80 +1,36 @@
 import { Eye, EyeOff } from "lucide-react";
 import { motion } from "motion/react";
+import { useEffect, useState } from "react";
 import { AnthropoceneAnchor } from "../components/AnthropoceneAnchor";
 import { FacultySubNav } from "../components/FacultySubNav";
 import { useVisibility } from "../context/VisibilityContext";
+import { getBackend } from "../utils/getBackend";
 
 const GRAIN_SVG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`;
 
-const STUDENTS_WORKS = [
-  {
-    id: "mw-1",
-    title: "Threshold Interfaces",
-    student: "Priya Nair",
-    year: "2024",
-    tags: ["Interaction", "Spatial"],
-    color: "#1C1C1C",
-  },
-  {
-    id: "mw-2",
-    title: "Soil Memory Archive",
-    student: "Arjun Menon",
-    year: "2024",
-    tags: ["Research", "Material"],
-    color: "#141414",
-  },
-  {
-    id: "mw-3",
-    title: "Haptic Landscapes",
-    student: "Devika Pillai",
-    year: "2023",
-    tags: ["Tactile", "UX"],
-    color: "#181818",
-  },
-  {
-    id: "mw-4",
-    title: "Invisible Cartographies",
-    student: "Rohan Das",
-    year: "2023",
-    tags: ["Systems", "Visual"],
-    color: "#111111",
-  },
-  {
-    id: "mw-5",
-    title: "The Weight of Light",
-    student: "Meera Krishnan",
-    year: "2024",
-    tags: ["Spatial", "Light"],
-    color: "#1E1A18",
-  },
-  {
-    id: "mw-6",
-    title: "Fermentation as Interface",
-    student: "Kiran Varma",
-    year: "2022",
-    tags: ["Bio", "Interaction"],
-    color: "#151210",
-  },
-  {
-    id: "mw-7",
-    title: "Drift Protocols",
-    student: "Ananya Iyer",
-    year: "2023",
-    tags: ["Motion", "Systems"],
-    color: "#121418",
-  },
-  {
-    id: "mw-8",
-    title: "Latent Terrains",
-    student: "Vikram Nambiar",
-    year: "2022",
-    tags: ["Generative", "Spatial"],
-    color: "#161616",
-  },
+// Cycle of card background colors — same as original design
+const CARD_COLORS = [
+  "#1C1C1C",
+  "#141414",
+  "#181818",
+  "#111111",
+  "#1E1A18",
+  "#151210",
+  "#121418",
+  "#161616",
 ];
 
+interface StudentWorkDisplay {
+  id: string;
+  title: string;
+  student: string;
+  year: string;
+  tags: string[];
+  color: string;
+}
+
 interface WorkCardProps {
-  item: (typeof STUDENTS_WORKS)[0];
+  item: StudentWorkDisplay;
   index: number;
 }
 
@@ -220,6 +176,31 @@ function StudentCard({ item, index }: WorkCardProps) {
 }
 
 export function FacultyStudentsWorks() {
+  const [works, setWorks] = useState<StudentWorkDisplay[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    getBackend()
+      .then((b) => b.listLiveStudentWorks())
+      .then((items) => {
+        const mapped: StudentWorkDisplay[] = items.map((item, i) => ({
+          id: String(item.id),
+          title: item.title,
+          student: item.student,
+          year: item.year,
+          tags: item.tags,
+          color: CARD_COLORS[i % CARD_COLORS.length],
+        }));
+        setWorks(mapped);
+      })
+      .catch(() => {
+        setWorks([]);
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, []);
+
   return (
     <div
       data-ocid="students.page"
@@ -294,19 +275,71 @@ export function FacultyStudentsWorks() {
           </h1>
         </motion.div>
 
+        {/* Loading state */}
+        {isLoading && (
+          <motion.div
+            data-ocid="students.loading_state"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+              gap: "1.5rem",
+            }}
+          >
+            {[1, 2, 3, 4].map((n) => (
+              <div
+                key={n}
+                style={{
+                  height: "280px",
+                  background: "rgba(229,224,216,0.03)",
+                  borderRadius: "2px",
+                  border: "1px solid rgba(229,224,216,0.05)",
+                }}
+              />
+            ))}
+          </motion.div>
+        )}
+
+        {/* Empty state */}
+        {!isLoading && works.length === 0 && (
+          <motion.div
+            data-ocid="students.empty_state"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            style={{ padding: "6rem 0", textAlign: "center" }}
+          >
+            <p
+              style={{
+                fontFamily: "Inter, system-ui, sans-serif",
+                fontSize: "10px",
+                letterSpacing: "0.3em",
+                textTransform: "uppercase",
+                color: "rgba(229,224,216,0.2)",
+                margin: 0,
+              }}
+            >
+              No student works published yet
+            </p>
+          </motion.div>
+        )}
+
         {/* Grid */}
-        <div
-          data-ocid="students.card.list"
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-            gap: "1.5rem",
-          }}
-        >
-          {STUDENTS_WORKS.map((item, i) => (
-            <StudentCard key={item.id} item={item} index={i} />
-          ))}
-        </div>
+        {!isLoading && works.length > 0 && (
+          <div
+            data-ocid="students.card.list"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+              gap: "1.5rem",
+            }}
+          >
+            {works.map((item, i) => (
+              <StudentCard key={item.id} item={item} index={i} />
+            ))}
+          </div>
+        )}
       </main>
 
       {/* Footer */}

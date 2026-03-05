@@ -3,12 +3,26 @@ import {
   BookOpen,
   FrameIcon,
   GalleryHorizontalEnd,
+  GalleryVerticalEnd,
   ImageIcon,
+  Layers,
+  LogOut,
   Plus,
+  X,
 } from "lucide-react";
-import { motion } from "motion/react";
-import { useEffect, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type {
+  ArtPortfolioItem,
+  DesignPortfolioItem,
+  LectureItem,
+  ResearchItem,
+  StudentWorkItem,
+} from "../backend.d";
 import { useCursor } from "../context/CursorContext";
+import { useActor } from "../hooks/useActor";
+import { useAdminAuth } from "../hooks/useAdminAuth";
+import { useInternetIdentity } from "../hooks/useInternetIdentity";
 
 function CursorReset() {
   const { setIsRevealed, setCursorLabel, setSuppressDefaultLabel } =
@@ -25,7 +39,12 @@ function CursorReset() {
   return null;
 }
 
-type NavSection = "lectures" | "students-works" | "art-portfolio";
+type NavSection =
+  | "lectures"
+  | "students-works"
+  | "art-portfolio"
+  | "design-portfolio"
+  | "research";
 
 const navItems: {
   id: NavSection;
@@ -51,99 +70,1128 @@ const navItems: {
     icon: <ImageIcon size={13} strokeWidth={1.5} />,
     ocid: "admin.art_portfolio.link",
   },
+  {
+    id: "design-portfolio",
+    label: "Manage Design Portfolio",
+    icon: <GalleryVerticalEnd size={13} strokeWidth={1.5} />,
+    ocid: "admin.design_portfolio.link",
+  },
+  {
+    id: "research",
+    label: "Manage Research",
+    icon: <Layers size={13} strokeWidth={1.5} />,
+    ocid: "admin.research.link",
+  },
 ];
 
-interface EntryData {
-  id: string;
-  title: string;
-  status: "Live" | "Draft";
-  type: string;
-}
+const SECTION_META: Record<NavSection, { title: string; description: string }> =
+  {
+    lectures: {
+      title: "Lectures",
+      description:
+        "Manage lecture cards and embedded Figma prototypes for the WebEcology series.",
+    },
+    "students-works": {
+      title: "Students Works",
+      description:
+        "Manage and moderate student portfolio submissions from the design faculty.",
+    },
+    "art-portfolio": {
+      title: "Art Portfolio",
+      description:
+        "Manage art practice entries and gallery images for the WebGL gallery.",
+    },
+    "design-portfolio": {
+      title: "Design Portfolio",
+      description:
+        "Manage curated design portfolio items including client work and self-initiated projects.",
+    },
+    research: {
+      title: "Research",
+      description:
+        "Manage floating canvas research cards — images, poems, sketches, and thought fragments.",
+    },
+  };
 
-interface SectionData {
-  title: string;
-  description: string;
-  entries: EntryData[];
-}
+// ─── Input styles ─────────────────────────────────────────────────────────────
 
-const SECTION_CONTENT: Record<NavSection, SectionData> = {
-  lectures: {
-    title: "Lectures",
-    description:
-      "Manage lecture cards and embedded Figma prototypes for the WebEcology series.",
-    entries: [
-      {
-        id: "lec-01",
-        title: "What is a Website?",
-        status: "Live",
-        type: "Lecture",
-      },
-      {
-        id: "lec-02",
-        title: "What is Auto Layout?",
-        status: "Live",
-        type: "Lecture",
-      },
-    ],
-  },
-  "students-works": {
-    title: "Students Works",
-    description:
-      "Manage and moderate student portfolio submissions from the design faculty.",
-    entries: [
-      { id: "sw-01", title: "Student Work 01", status: "Live", type: "Work" },
-      { id: "sw-02", title: "Student Work 02", status: "Live", type: "Work" },
-      { id: "sw-03", title: "Student Work 03", status: "Draft", type: "Work" },
-      { id: "sw-04", title: "Student Work 04", status: "Live", type: "Work" },
-      { id: "sw-05", title: "Student Work 05", status: "Live", type: "Work" },
-      { id: "sw-06", title: "Student Work 06", status: "Draft", type: "Work" },
-      { id: "sw-07", title: "Student Work 07", status: "Live", type: "Work" },
-    ],
-  },
-  "art-portfolio": {
-    title: "Art Portfolio",
-    description:
-      "Manage art practice entries and gallery images for the WebGL gallery.",
-    entries: [
-      {
-        id: "ap-01",
-        title: "Quarry Painting 01",
-        status: "Live",
-        type: "Image",
-      },
-      {
-        id: "ap-02",
-        title: "Quarry Painting 02",
-        status: "Live",
-        type: "Image",
-      },
-      {
-        id: "ap-03",
-        title: "Quarry Painting 03",
-        status: "Draft",
-        type: "Image",
-      },
-      {
-        id: "ap-04",
-        title: "Quarry Painting 04",
-        status: "Live",
-        type: "Image",
-      },
-      {
-        id: "ap-05",
-        title: "Quarry Painting 05",
-        status: "Live",
-        type: "Image",
-      },
-      {
-        id: "ap-06",
-        title: "Quarry Painting 06",
-        status: "Draft",
-        type: "Image",
-      },
-    ],
-  },
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  background: "#111111",
+  border: "1px solid rgba(229,224,216,0.15)",
+  borderRadius: "0",
+  padding: "0.75rem 1rem",
+  fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+  fontSize: "12px",
+  color: "#E5E0D8",
+  outline: "none",
+  transition: "border-color 0.2s ease",
+  cursor: "text",
+  boxSizing: "border-box" as const,
 };
+
+const labelStyle: React.CSSProperties = {
+  display: "block",
+  fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+  fontSize: "9px",
+  letterSpacing: "0.3em",
+  textTransform: "uppercase",
+  color: "rgba(229,224,216,0.4)",
+  marginBottom: "0.5rem",
+  cursor: "default",
+};
+
+// ─── Modal: Add Lecture ────────────────────────────────────────────────────────
+
+function AddLectureModal({
+  onClose,
+  onSuccess,
+  actor,
+}: {
+  onClose: () => void;
+  onSuccess: () => void;
+  actor: import("../backend.d").backendInterface | null;
+}) {
+  const [title, setTitle] = useState("");
+  const [protoUrl, setProtoUrl] = useState("");
+  const [desc, setDesc] = useState("");
+  const [duration, setDuration] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async () => {
+    if (!title.trim()) {
+      setError("Title is required.");
+      return;
+    }
+    if (!actor) {
+      setError("Actor not ready. Please wait or re-authenticate.");
+      return;
+    }
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      await actor.addLecture(
+        title.trim(),
+        protoUrl.trim(),
+        desc.trim(),
+        duration.trim(),
+      );
+      onSuccess();
+      onClose();
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Failed to add lecture. Check admin permissions.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <ModalShell title="Add Lecture" onClose={onClose}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+        <FormField label="Title" value={title} onChange={setTitle} />
+        <FormField
+          label="Prototype URL"
+          value={protoUrl}
+          onChange={setProtoUrl}
+          placeholder="https://..."
+        />
+        <FormTextarea label="Description" value={desc} onChange={setDesc} />
+        <FormField
+          label="Duration"
+          value={duration}
+          onChange={setDuration}
+          placeholder="40 min · Live session"
+        />
+        {error && <ErrorText>{error}</ErrorText>}
+        <SubmitButton onClick={handleSubmit} isSubmitting={isSubmitting} />
+      </div>
+    </ModalShell>
+  );
+}
+
+// ─── Modal: Add Student Work ───────────────────────────────────────────────────
+
+function AddStudentWorkModal({
+  onClose,
+  onSuccess,
+  actor,
+}: {
+  onClose: () => void;
+  onSuccess: () => void;
+  actor: import("../backend.d").backendInterface | null;
+}) {
+  const [title, setTitle] = useState("");
+  const [student, setStudent] = useState("");
+  const [year, setYear] = useState("");
+  const [tags, setTags] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async () => {
+    if (!title.trim()) {
+      setError("Title is required.");
+      return;
+    }
+    if (!actor) {
+      setError("Actor not ready. Please wait or re-authenticate.");
+      return;
+    }
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      const tagsArray = tags
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean);
+      await actor.addStudentWork(
+        title.trim(),
+        student.trim(),
+        year.trim(),
+        tagsArray,
+      );
+      onSuccess();
+      onClose();
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Failed to add work. Check admin permissions.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <ModalShell title="Add Student Work" onClose={onClose}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+        <FormField label="Title" value={title} onChange={setTitle} />
+        <FormField label="Student Name" value={student} onChange={setStudent} />
+        <FormField
+          label="Year"
+          value={year}
+          onChange={setYear}
+          placeholder="2024"
+        />
+        <FormField
+          label="Tags (comma-separated)"
+          value={tags}
+          onChange={setTags}
+          placeholder="Interaction, Spatial"
+        />
+        {error && <ErrorText>{error}</ErrorText>}
+        <SubmitButton onClick={handleSubmit} isSubmitting={isSubmitting} />
+      </div>
+    </ModalShell>
+  );
+}
+
+// ─── Modal: Add Art Item ───────────────────────────────────────────────────────
+
+const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
+
+function AddArtItemModal({
+  onClose,
+  onSuccess,
+  actor,
+}: {
+  onClose: () => void;
+  onSuccess: () => void;
+  actor: import("../backend.d").backendInterface | null;
+}) {
+  const [title, setTitle] = useState("");
+  const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
+  const [imageFileName, setImageFileName] = useState<string>("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > MAX_FILE_SIZE) {
+      setError("Image is too large (max 2 MB). Please compress it first.");
+      return;
+    }
+
+    setError(null);
+    setImageFileName(file.name);
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const result = ev.target?.result;
+      if (typeof result === "string") {
+        setImageDataUrl(result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSubmit = async () => {
+    if (!title.trim()) {
+      setError("Title is required.");
+      return;
+    }
+    if (!imageDataUrl) {
+      setError("Please select an image.");
+      return;
+    }
+    if (!actor) {
+      setError("Actor not ready. Please wait or re-authenticate.");
+      return;
+    }
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      await actor.addArtItem(title.trim(), imageDataUrl);
+      onSuccess();
+      onClose();
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Failed to add item. Check admin permissions.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <ModalShell title="Add Art Item" onClose={onClose}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+        <FormField label="Title" value={title} onChange={setTitle} />
+
+        {/* File uploader */}
+        <div>
+          <span style={labelStyle}>Image File</span>
+
+          {/* Hidden native file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            data-ocid="admin.add_entry.upload_button"
+            onChange={handleFileChange}
+            style={{ display: "none" }}
+          />
+
+          {/* Styled trigger button */}
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            style={{
+              width: "100%",
+              background: "#111111",
+              border: "1px solid rgba(229,224,216,0.15)",
+              borderRadius: "0",
+              padding: "0.75rem 1rem",
+              fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+              fontSize: "12px",
+              color: imageFileName ? "#E5E0D8" : "rgba(229,224,216,0.35)",
+              outline: "none",
+              cursor: "default",
+              textAlign: "left",
+              transition: "border-color 0.2s ease",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              boxSizing: "border-box",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.borderColor =
+                "rgba(229,224,216,0.45)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.borderColor =
+                "rgba(229,224,216,0.15)";
+            }}
+          >
+            <ImageIcon
+              size={13}
+              strokeWidth={1.5}
+              style={{ flexShrink: 0, color: "rgba(229,224,216,0.4)" }}
+            />
+            <span
+              style={{
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {imageFileName || "Choose image..."}
+            </span>
+          </button>
+        </div>
+
+        {/* Thumbnail preview */}
+        {imageDataUrl && (
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            style={{
+              border: "1px solid rgba(229,224,216,0.1)",
+              padding: "0.5rem",
+              background: "#111111",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.75rem",
+            }}
+          >
+            <img
+              src={imageDataUrl}
+              alt="Preview"
+              style={{
+                height: "80px",
+                width: "auto",
+                maxWidth: "100%",
+                objectFit: "cover",
+                display: "block",
+                flexShrink: 0,
+              }}
+            />
+            <div>
+              <p
+                style={{
+                  fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                  fontSize: "8px",
+                  letterSpacing: "0.2em",
+                  textTransform: "uppercase",
+                  color: "rgba(229,224,216,0.3)",
+                  margin: "0 0 0.25rem",
+                }}
+              >
+                Preview
+              </p>
+              <p
+                style={{
+                  fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                  fontSize: "9px",
+                  color: "rgba(229,224,216,0.55)",
+                  margin: 0,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  maxWidth: "180px",
+                }}
+              >
+                {imageFileName}
+              </p>
+            </div>
+          </motion.div>
+        )}
+
+        {error && <ErrorText>{error}</ErrorText>}
+        <SubmitButton onClick={handleSubmit} isSubmitting={isSubmitting} />
+      </div>
+    </ModalShell>
+  );
+}
+
+// ─── Modal: Add Design Portfolio Item ─────────────────────────────────────────
+
+function AddDesignPortfolioModal({
+  onClose,
+  onSuccess,
+  actor,
+}: {
+  onClose: () => void;
+  onSuccess: () => void;
+  actor: import("../backend.d").backendInterface | null;
+}) {
+  const [title, setTitle] = useState("");
+  const [client, setClient] = useState("");
+  const [year, setYear] = useState("");
+  const [tags, setTags] = useState("");
+  const [description, setDescription] = useState("");
+  // Media inputs
+  const [figmaUrl, setFigmaUrl] = useState("");
+  const [imageDataUrl, setImageDataUrl] = useState<string>("");
+  const [imageFileName, setImageFileName] = useState<string>("");
+  const [videoUrl, setVideoUrl] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > MAX_FILE_SIZE) {
+      setError("Image is too large (max 2 MB). Please compress it first.");
+      return;
+    }
+    setError(null);
+    setImageFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const result = ev.target?.result;
+      if (typeof result === "string") setImageDataUrl(result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSubmit = async () => {
+    if (!title.trim()) {
+      setError("Title is required.");
+      return;
+    }
+    if (!actor) {
+      setError("Actor not ready. Please wait or re-authenticate.");
+      return;
+    }
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      const tagsArray = tags
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean);
+      await actor.addDesignPortfolio(
+        title.trim(),
+        client.trim(),
+        year.trim(),
+        tagsArray,
+        figmaUrl.trim(),
+        imageDataUrl,
+        videoUrl.trim(),
+        description.trim(),
+      );
+      onSuccess();
+      onClose();
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Failed to add item. Check admin permissions.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <ModalShell title="Add Design Portfolio Item" onClose={onClose}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+        <FormField label="Title" value={title} onChange={setTitle} />
+        <FormField label="Client" value={client} onChange={setClient} />
+        <FormField
+          label="Year"
+          value={year}
+          onChange={setYear}
+          placeholder="2024"
+        />
+        <FormField
+          label="Tags (comma-separated)"
+          value={tags}
+          onChange={setTags}
+          placeholder="Identity, Print"
+        />
+
+        <FormTextarea
+          label="Description"
+          value={description}
+          onChange={setDescription}
+          placeholder="Project description..."
+        />
+
+        {/* ── Media section separator ── */}
+        <div
+          style={{
+            borderTop: "1px solid rgba(229,224,216,0.08)",
+            paddingTop: "0.5rem",
+          }}
+        >
+          <p
+            style={{
+              fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+              fontSize: "8px",
+              letterSpacing: "0.3em",
+              textTransform: "uppercase",
+              color: "rgba(229,224,216,0.28)",
+              margin: "0 0 1rem",
+            }}
+          >
+            Media — choose one (optional)
+          </p>
+        </div>
+
+        {/* ── Figma URL ── */}
+        <FormField
+          label="Figma Prototype URL"
+          value={figmaUrl}
+          onChange={setFigmaUrl}
+          placeholder="https://figma.site/..."
+        />
+
+        {/* ── Image upload ── */}
+        <div>
+          <span style={labelStyle}>Image File (PNG / JPG)</span>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            data-ocid="admin.design.upload_button"
+            onChange={handleFileChange}
+            style={{ display: "none" }}
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            style={{
+              width: "100%",
+              background: "#111111",
+              border: "1px solid rgba(229,224,216,0.15)",
+              borderRadius: "0",
+              padding: "0.75rem 1rem",
+              fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+              fontSize: "12px",
+              color: imageFileName ? "#E5E0D8" : "rgba(229,224,216,0.35)",
+              outline: "none",
+              cursor: "default",
+              textAlign: "left",
+              transition: "border-color 0.2s ease",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              boxSizing: "border-box",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.borderColor =
+                "rgba(229,224,216,0.45)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.borderColor =
+                "rgba(229,224,216,0.15)";
+            }}
+          >
+            <ImageIcon
+              size={13}
+              strokeWidth={1.5}
+              style={{ flexShrink: 0, color: "rgba(229,224,216,0.4)" }}
+            />
+            <span
+              style={{
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {imageFileName || "Choose image..."}
+            </span>
+          </button>
+          {imageDataUrl && (
+            <motion.div
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25 }}
+              style={{
+                marginTop: "0.5rem",
+                border: "1px solid rgba(229,224,216,0.1)",
+                padding: "0.4rem 0.5rem",
+                background: "#111111",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.6rem",
+              }}
+            >
+              <img
+                src={imageDataUrl}
+                alt="Preview"
+                style={{
+                  height: "50px",
+                  width: "auto",
+                  maxWidth: "80px",
+                  objectFit: "contain",
+                  display: "block",
+                  flexShrink: 0,
+                }}
+              />
+              <span
+                style={{
+                  fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                  fontSize: "8px",
+                  color: "rgba(229,224,216,0.45)",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {imageFileName}
+              </span>
+            </motion.div>
+          )}
+        </div>
+
+        {/* ── Video URL ── */}
+        <FormField
+          label="Video URL (MP4)"
+          value={videoUrl}
+          onChange={setVideoUrl}
+          placeholder="https://example.com/video.mp4"
+        />
+
+        {error && <ErrorText>{error}</ErrorText>}
+        <SubmitButton onClick={handleSubmit} isSubmitting={isSubmitting} />
+      </div>
+    </ModalShell>
+  );
+}
+
+// ─── Modal: Add Research Item ─────────────────────────────────────────────────
+
+function AddResearchItemModal({
+  onClose,
+  onSuccess,
+  actor,
+}: {
+  onClose: () => void;
+  onSuccess: () => void;
+  actor: import("../backend.d").backendInterface | null;
+}) {
+  const [title, setTitle] = useState("");
+  const [desc, setDesc] = useState("");
+  const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
+  const [imageFileName, setImageFileName] = useState<string>("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > MAX_FILE_SIZE) {
+      setError("Image is too large (max 2 MB). Please compress it first.");
+      return;
+    }
+
+    setError(null);
+    setImageFileName(file.name);
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const result = ev.target?.result;
+      if (typeof result === "string") {
+        setImageDataUrl(result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSubmit = async () => {
+    if (!title.trim()) {
+      setError("Title is required.");
+      return;
+    }
+    if (!imageDataUrl) {
+      setError("Please select an image.");
+      return;
+    }
+    if (!actor) {
+      setError("Actor not ready. Please wait or re-authenticate.");
+      return;
+    }
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      await actor.addResearchItem(title.trim(), desc.trim(), imageDataUrl);
+      onSuccess();
+      onClose();
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Failed to add item. Check admin permissions.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <ModalShell title="Add Research Card" onClose={onClose}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+        <FormField label="Title" value={title} onChange={setTitle} />
+        <FormTextarea label="Description" value={desc} onChange={setDesc} />
+
+        {/* File uploader */}
+        <div>
+          <span style={labelStyle}>Image File (Figma PNG)</span>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            data-ocid="admin.research.upload_button"
+            onChange={handleFileChange}
+            style={{ display: "none" }}
+          />
+
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            style={{
+              width: "100%",
+              background: "#111111",
+              border: "1px solid rgba(229,224,216,0.15)",
+              borderRadius: "0",
+              padding: "0.75rem 1rem",
+              fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+              fontSize: "12px",
+              color: imageFileName ? "#E5E0D8" : "rgba(229,224,216,0.35)",
+              outline: "none",
+              cursor: "default",
+              textAlign: "left",
+              transition: "border-color 0.2s ease",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              boxSizing: "border-box",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.borderColor =
+                "rgba(229,224,216,0.45)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.borderColor =
+                "rgba(229,224,216,0.15)";
+            }}
+          >
+            <ImageIcon
+              size={13}
+              strokeWidth={1.5}
+              style={{ flexShrink: 0, color: "rgba(229,224,216,0.4)" }}
+            />
+            <span
+              style={{
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {imageFileName || "Choose image..."}
+            </span>
+          </button>
+        </div>
+
+        {/* Thumbnail preview */}
+        {imageDataUrl && (
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            style={{
+              border: "1px solid rgba(229,224,216,0.1)",
+              padding: "0.5rem",
+              background: "#111111",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.75rem",
+            }}
+          >
+            <img
+              src={imageDataUrl}
+              alt="Preview"
+              style={{
+                height: "80px",
+                width: "auto",
+                maxWidth: "100%",
+                objectFit: "cover",
+                display: "block",
+                flexShrink: 0,
+              }}
+            />
+            <div>
+              <p
+                style={{
+                  fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                  fontSize: "8px",
+                  letterSpacing: "0.2em",
+                  textTransform: "uppercase",
+                  color: "rgba(229,224,216,0.3)",
+                  margin: "0 0 0.25rem",
+                }}
+              >
+                Preview
+              </p>
+              <p
+                style={{
+                  fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                  fontSize: "9px",
+                  color: "rgba(229,224,216,0.55)",
+                  margin: 0,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  maxWidth: "180px",
+                }}
+              >
+                {imageFileName}
+              </p>
+            </div>
+          </motion.div>
+        )}
+
+        {error && <ErrorText>{error}</ErrorText>}
+        <SubmitButton onClick={handleSubmit} isSubmitting={isSubmitting} />
+      </div>
+    </ModalShell>
+  );
+}
+
+// ─── Shared Modal Primitives ───────────────────────────────────────────────────
+
+function ModalShell({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  const overlayRef = useRef<HTMLDivElement>(null);
+
+  // Close on Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  return (
+    <motion.div
+      data-ocid="admin.add_entry.dialog"
+      ref={overlayRef}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      onClick={(e) => {
+        if (e.target === overlayRef.current) onClose();
+      }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 100,
+        backgroundColor: "rgba(0,0,0,0.75)",
+        backdropFilter: "blur(6px)",
+        WebkitBackdropFilter: "blur(6px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "1.5rem",
+      }}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.94, y: 16 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.94, y: 16 }}
+        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+        style={{
+          width: "100%",
+          maxWidth: "460px",
+          background: "#1a1a1a",
+          border: "1px solid rgba(229,224,216,0.1)",
+          borderRadius: "2px",
+          padding: "2rem",
+          position: "relative",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: "1.75rem",
+          }}
+        >
+          <h3
+            style={{
+              fontFamily: '"Playfair Display", Georgia, serif',
+              fontStyle: "italic",
+              fontWeight: 700,
+              fontSize: "18px",
+              color: "#E5E0D8",
+              margin: 0,
+            }}
+          >
+            {title}
+          </h3>
+          <button
+            type="button"
+            data-ocid="admin.add_entry.close_button"
+            onClick={onClose}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "default",
+              color: "rgba(229,224,216,0.4)",
+              padding: "0.25rem",
+              display: "flex",
+              alignItems: "center",
+              transition: "color 0.2s ease",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.color = "#E5E0D8";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.color =
+                "rgba(229,224,216,0.4)";
+            }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {children}
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function FormField({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}) {
+  const id = `field-${label.toLowerCase().replace(/\s+/g, "-")}`;
+  return (
+    <div>
+      <label htmlFor={id} style={labelStyle}>
+        {label}
+      </label>
+      <input
+        id={id}
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        style={inputStyle}
+        onFocus={(e) => {
+          e.currentTarget.style.borderColor = "rgba(229,224,216,0.45)";
+        }}
+        onBlur={(e) => {
+          e.currentTarget.style.borderColor = "rgba(229,224,216,0.15)";
+        }}
+      />
+    </div>
+  );
+}
+
+function FormTextarea({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}) {
+  const id = `field-${label.toLowerCase().replace(/\s+/g, "-")}`;
+  return (
+    <div>
+      <label htmlFor={id} style={labelStyle}>
+        {label}
+      </label>
+      <textarea
+        id={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        rows={4}
+        style={{
+          ...inputStyle,
+          resize: "vertical",
+          lineHeight: "1.6",
+        }}
+        onFocus={(e) => {
+          e.currentTarget.style.borderColor = "rgba(229,224,216,0.45)";
+        }}
+        onBlur={(e) => {
+          e.currentTarget.style.borderColor = "rgba(229,224,216,0.15)";
+        }}
+      />
+    </div>
+  );
+}
+
+function ErrorText({ children }: { children: React.ReactNode }) {
+  return (
+    <p
+      data-ocid="admin.add_entry.error_state"
+      style={{
+        fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+        fontSize: "10px",
+        letterSpacing: "0.06em",
+        color: "#8C3A3A",
+        margin: 0,
+        lineHeight: 1.6,
+      }}
+    >
+      {children}
+    </p>
+  );
+}
+
+function SubmitButton({
+  onClick,
+  isSubmitting,
+}: {
+  onClick: () => void;
+  isSubmitting: boolean;
+}) {
+  const [isHovering, setIsHovering] = useState(false);
+  return (
+    <button
+      type="button"
+      data-ocid="admin.add_entry.submit_button"
+      onClick={onClick}
+      disabled={isSubmitting}
+      onMouseEnter={() => setIsHovering(true)}
+      onMouseLeave={() => setIsHovering(false)}
+      style={{
+        width: "100%",
+        background: isHovering && !isSubmitting ? "#a84444" : "#8C3A3A",
+        border: "none",
+        borderRadius: "0",
+        padding: "0.875rem 1rem",
+        fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+        fontSize: "9px",
+        letterSpacing: "0.3em",
+        textTransform: "uppercase",
+        color: "#E5E0D8",
+        cursor: "default",
+        transition: "background 0.2s ease",
+        opacity: isSubmitting ? 0.6 : 1,
+        marginTop: "0.25rem",
+      }}
+    >
+      {isSubmitting ? "Saving..." : "Save Entry"}
+    </button>
+  );
+}
+
+// ─── Sidebar nav item ──────────────────────────────────────────────────────────
 
 function SidebarNavItem({
   item,
@@ -206,13 +1254,54 @@ function SidebarNavItem({
   );
 }
 
-function EntryRow({
-  entry,
-  rowIndex,
-}: {
-  entry: EntryData;
+// ─── Entry row ─────────────────────────────────────────────────────────────────
+
+interface EntryRowProps {
+  id: bigint;
+  title: string;
+  isLive: boolean;
+  type: string;
   rowIndex: number;
-}) {
+  onToggleLive: (id: bigint, isLive: boolean) => Promise<void>;
+  onDelete: (id: bigint) => Promise<void>;
+}
+
+function EntryRow({
+  id,
+  title,
+  isLive,
+  type,
+  rowIndex,
+  onToggleLive,
+  onDelete,
+}: EntryRowProps) {
+  const [isTogglingLive, setIsTogglingLive] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [rowError, setRowError] = useState<string | null>(null);
+
+  const handleToggleLive = async () => {
+    setIsTogglingLive(true);
+    setRowError(null);
+    try {
+      await onToggleLive(id, !isLive);
+    } catch (e) {
+      setRowError(e instanceof Error ? e.message : "Action failed.");
+    } finally {
+      setIsTogglingLive(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    setRowError(null);
+    try {
+      await onDelete(id);
+    } catch (e) {
+      setRowError(e instanceof Error ? e.message : "Delete failed.");
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <motion.div
       data-ocid={`admin.entries.row.${rowIndex}`}
@@ -224,11 +1313,7 @@ function EntryRow({
         ease: "easeOut",
       }}
       style={{
-        display: "grid",
-        gridTemplateColumns: "1fr 120px 80px 100px",
-        padding: "1rem",
         borderBottom: "1px solid rgba(229,224,216,0.05)",
-        alignItems: "center",
         transition: "background 0.15s ease",
         cursor: "default",
       }}
@@ -240,117 +1325,420 @@ function EntryRow({
         (e.currentTarget as HTMLDivElement).style.background = "transparent";
       }}
     >
-      {/* Title */}
-      <span
+      <div
         style={{
-          fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
-          fontSize: "11px",
-          color: "rgba(229,224,216,0.65)",
-          letterSpacing: "0.02em",
+          display: "grid",
+          gridTemplateColumns: "1fr 100px 80px 140px",
+          padding: "0.875rem 1rem",
+          alignItems: "center",
         }}
       >
-        {entry.title}
-      </span>
-
-      {/* Status */}
-      <span
-        style={{
-          fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
-          fontSize: "8px",
-          letterSpacing: "0.2em",
-          textTransform: "uppercase",
-          color:
-            entry.status === "Draft" ? "rgba(229,224,216,0.25)" : "#8C3A3A",
-          opacity: entry.status === "Draft" ? 1 : 0.85,
-        }}
-      >
-        {entry.status}
-      </span>
-
-      {/* Type */}
-      <span
-        style={{
-          fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
-          fontSize: "8px",
-          letterSpacing: "0.15em",
-          textTransform: "uppercase",
-          color: "rgba(229,224,216,0.2)",
-        }}
-      >
-        {entry.type}
-      </span>
-
-      {/* Actions */}
-      <div style={{ display: "flex", gap: "0.75rem" }}>
-        <button
-          type="button"
-          data-ocid={`admin.entries.edit_button.${rowIndex}`}
+        {/* Title */}
+        <span
           style={{
-            background: "none",
-            border: "1px solid rgba(229,224,216,0.12)",
-            padding: "0.25rem 0.6rem",
             fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
-            fontSize: "7px",
-            letterSpacing: "0.2em",
-            textTransform: "uppercase",
-            color: "rgba(229,224,216,0.5)",
-            cursor: "default",
-            borderRadius: "0",
-            transition: "border-color 0.2s, color 0.2s",
-          }}
-          onMouseEnter={(e) => {
-            const el = e.currentTarget as HTMLButtonElement;
-            el.style.borderColor = "rgba(229,224,216,0.4)";
-            el.style.color = "rgba(229,224,216,0.9)";
-          }}
-          onMouseLeave={(e) => {
-            const el = e.currentTarget as HTMLButtonElement;
-            el.style.borderColor = "rgba(229,224,216,0.12)";
-            el.style.color = "rgba(229,224,216,0.5)";
+            fontSize: "11px",
+            color: "rgba(229,224,216,0.65)",
+            letterSpacing: "0.02em",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            paddingRight: "1rem",
           }}
         >
-          Edit
-        </button>
+          {title}
+        </span>
+
+        {/* Status toggle */}
         <button
           type="button"
-          data-ocid={`admin.entries.delete_button.${rowIndex}`}
+          data-ocid={`admin.entries.toggle.${rowIndex}`}
+          onClick={handleToggleLive}
+          disabled={isTogglingLive}
           style={{
             background: "none",
-            border: "1px solid rgba(140,58,58,0.18)",
-            padding: "0.25rem 0.6rem",
-            fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
-            fontSize: "7px",
-            letterSpacing: "0.2em",
-            textTransform: "uppercase",
-            color: "rgba(140,58,58,0.55)",
+            border: "none",
+            padding: 0,
             cursor: "default",
-            borderRadius: "0",
-            transition: "border-color 0.2s, color 0.2s",
-          }}
-          onMouseEnter={(e) => {
-            const el = e.currentTarget as HTMLButtonElement;
-            el.style.borderColor = "#8C3A3A";
-            el.style.color = "#8C3A3A";
-          }}
-          onMouseLeave={(e) => {
-            const el = e.currentTarget as HTMLButtonElement;
-            el.style.borderColor = "rgba(140,58,58,0.18)";
-            el.style.color = "rgba(140,58,58,0.55)";
+            display: "flex",
+            alignItems: "center",
+            gap: "0.4rem",
+            opacity: isTogglingLive ? 0.5 : 1,
+            transition: "opacity 0.2s ease",
           }}
         >
-          Del
+          <span
+            style={{
+              width: "6px",
+              height: "6px",
+              borderRadius: "50%",
+              background: isLive ? "#4CAF50" : "rgba(229,224,216,0.2)",
+              flexShrink: 0,
+              transition: "background 0.2s ease",
+            }}
+          />
+          <span
+            style={{
+              fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+              fontSize: "8px",
+              letterSpacing: "0.2em",
+              textTransform: "uppercase",
+              color: isLive ? "#4CAF50" : "rgba(229,224,216,0.25)",
+            }}
+          >
+            {isLive ? "Live" : "Draft"}
+          </span>
         </button>
+
+        {/* Type */}
+        <span
+          style={{
+            fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+            fontSize: "8px",
+            letterSpacing: "0.15em",
+            textTransform: "uppercase",
+            color: "rgba(229,224,216,0.2)",
+          }}
+        >
+          {type}
+        </span>
+
+        {/* Actions */}
+        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+          <button
+            type="button"
+            data-ocid={`admin.entries.save_button.${rowIndex}`}
+            onClick={handleToggleLive}
+            disabled={isTogglingLive}
+            style={{
+              background: "none",
+              border: "1px solid rgba(229,224,216,0.12)",
+              padding: "0.25rem 0.6rem",
+              fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+              fontSize: "7px",
+              letterSpacing: "0.2em",
+              textTransform: "uppercase",
+              color: "rgba(229,224,216,0.5)",
+              cursor: "default",
+              borderRadius: "0",
+              transition: "border-color 0.2s, color 0.2s",
+              opacity: isTogglingLive ? 0.5 : 1,
+            }}
+            onMouseEnter={(e) => {
+              const el = e.currentTarget as HTMLButtonElement;
+              el.style.borderColor = "rgba(229,224,216,0.4)";
+              el.style.color = "rgba(229,224,216,0.9)";
+            }}
+            onMouseLeave={(e) => {
+              const el = e.currentTarget as HTMLButtonElement;
+              el.style.borderColor = "rgba(229,224,216,0.12)";
+              el.style.color = "rgba(229,224,216,0.5)";
+            }}
+          >
+            {isLive ? "Unlive" : "Go Live"}
+          </button>
+          <button
+            type="button"
+            data-ocid={`admin.entries.delete_button.${rowIndex}`}
+            onClick={handleDelete}
+            disabled={isDeleting}
+            style={{
+              background: "none",
+              border: "1px solid rgba(140,58,58,0.18)",
+              padding: "0.25rem 0.6rem",
+              fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+              fontSize: "7px",
+              letterSpacing: "0.2em",
+              textTransform: "uppercase",
+              color: isDeleting
+                ? "rgba(140,58,58,0.3)"
+                : "rgba(140,58,58,0.55)",
+              cursor: "default",
+              borderRadius: "0",
+              transition: "border-color 0.2s, color 0.2s",
+              opacity: isDeleting ? 0.5 : 1,
+            }}
+            onMouseEnter={(e) => {
+              if (!isDeleting) {
+                const el = e.currentTarget as HTMLButtonElement;
+                el.style.borderColor = "#8C3A3A";
+                el.style.color = "#8C3A3A";
+              }
+            }}
+            onMouseLeave={(e) => {
+              const el = e.currentTarget as HTMLButtonElement;
+              el.style.borderColor = "rgba(140,58,58,0.18)";
+              el.style.color = "rgba(140,58,58,0.55)";
+            }}
+          >
+            {isDeleting ? "..." : "Del"}
+          </button>
+        </div>
       </div>
+
+      {/* Inline error */}
+      {rowError && (
+        <div
+          style={{
+            padding: "0.4rem 1rem 0.6rem",
+            fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+            fontSize: "9px",
+            letterSpacing: "0.06em",
+            color: "#8C3A3A",
+            lineHeight: 1.5,
+          }}
+        >
+          ⚠ {rowError}
+        </div>
+      )}
     </motion.div>
   );
 }
 
+// ─── Admin Dashboard ───────────────────────────────────────────────────────────
+
 export function AdminDashboard() {
   const navigate = useNavigate();
+  const { isAuthenticated, logout } = useAdminAuth();
+  const { identity } = useInternetIdentity();
+  const { actor, isFetching: isActorFetching } = useActor();
   const [activeSection, setActiveSection] = useState<NavSection>("lectures");
   const [isHoveringAdd, setIsHoveringAdd] = useState(false);
+  const [isHoveringLogout, setIsHoveringLogout] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
 
-  const currentSection = SECTION_CONTENT[activeSection];
+  // Data state per section
+  const [lectures, setLectures] = useState<LectureItem[]>([]);
+  const [studentWorks, setStudentWorks] = useState<StudentWorkItem[]>([]);
+  const [artItems, setArtItems] = useState<ArtPortfolioItem[]>([]);
+  const [designItems, setDesignItems] = useState<DesignPortfolioItem[]>([]);
+  const [researchItems, setResearchItems] = useState<ResearchItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  // CV link state (design-portfolio section)
+  const [cvLinkInput, setCvLinkInput] = useState("");
+  const [cvLinkSaving, setCvLinkSaving] = useState(false);
+  const [cvLinkSaved, setCvLinkSaved] = useState(false);
+  const [cvLinkError, setCvLinkError] = useState<string | null>(null);
+
+  // Route protection — require local session AND internet identity
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate({ to: "/admin" });
+    }
+  }, [isAuthenticated, navigate]);
+
+  const loadSection = useCallback(
+    async (section: NavSection) => {
+      if (!actor) return;
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        if (section === "lectures") {
+          const data = await actor.listAllLectures();
+          setLectures(data);
+        } else if (section === "students-works") {
+          const data = await actor.listAllStudentWorks();
+          setStudentWorks(data);
+        } else if (section === "art-portfolio") {
+          const data = await actor.listAllArtItems();
+          setArtItems(data);
+        } else if (section === "design-portfolio") {
+          const [data, link] = await Promise.all([
+            actor.listAllDesignPortfolio(),
+            actor.getCvLink(),
+          ]);
+          setDesignItems(data);
+          setCvLinkInput(link?.trim() ?? "");
+        } else if (section === "research") {
+          const data = await actor.listAllResearchItems();
+          setResearchItems(data);
+        }
+      } catch (e) {
+        setLoadError(
+          e instanceof Error ? e.message : "Failed to load data from backend.",
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [actor],
+  );
+
+  useEffect(() => {
+    if (isAuthenticated && actor && !isActorFetching) {
+      loadSection(activeSection);
+    }
+  }, [activeSection, isAuthenticated, actor, isActorFetching, loadSection]);
+
+  const handleLogout = () => {
+    logout();
+    navigate({ to: "/admin" });
+  };
+
+  const handleSectionChange = (section: NavSection) => {
+    setActiveSection(section);
+    setShowAddModal(false);
+  };
+
+  // ── Handlers per section ──────────────────────────────────────────────────
+
+  const handleToggleLecture = async (id: bigint, newLive: boolean) => {
+    if (!actor) return;
+    await actor.setLectureLive(id, newLive);
+    const data = await actor.listAllLectures();
+    setLectures(data);
+  };
+
+  const handleDeleteLecture = async (id: bigint) => {
+    if (!actor) return;
+    await actor.deleteLecture(id);
+    const data = await actor.listAllLectures();
+    setLectures(data);
+  };
+
+  const handleToggleStudentWork = async (id: bigint, newLive: boolean) => {
+    if (!actor) return;
+    await actor.setStudentWorkLive(id, newLive);
+    const data = await actor.listAllStudentWorks();
+    setStudentWorks(data);
+  };
+
+  const handleDeleteStudentWork = async (id: bigint) => {
+    if (!actor) return;
+    await actor.deleteStudentWork(id);
+    const data = await actor.listAllStudentWorks();
+    setStudentWorks(data);
+  };
+
+  const handleToggleArtItem = async (id: bigint, newLive: boolean) => {
+    if (!actor) return;
+    await actor.setArtItemLive(id, newLive);
+    const data = await actor.listAllArtItems();
+    setArtItems(data);
+  };
+
+  const handleDeleteArtItem = async (id: bigint) => {
+    if (!actor) return;
+    await actor.deleteArtItem(id);
+    const data = await actor.listAllArtItems();
+    setArtItems(data);
+  };
+
+  const handleToggleDesignItem = async (id: bigint, newLive: boolean) => {
+    if (!actor) return;
+    await actor.setDesignPortfolioLive(id, newLive);
+    const data = await actor.listAllDesignPortfolio();
+    setDesignItems(data);
+  };
+
+  const handleDeleteDesignItem = async (id: bigint) => {
+    if (!actor) return;
+    await actor.deleteDesignPortfolio(id);
+    const data = await actor.listAllDesignPortfolio();
+    setDesignItems(data);
+  };
+
+  const handleToggleResearchItem = async (id: bigint, newLive: boolean) => {
+    if (!actor) return;
+    await actor.setResearchItemLive(id, newLive);
+    const data = await actor.listAllResearchItems();
+    setResearchItems(data);
+  };
+
+  const handleDeleteResearchItem = async (id: bigint) => {
+    if (!actor) return;
+    await actor.deleteResearchItem(id);
+    const data = await actor.listAllResearchItems();
+    setResearchItems(data);
+  };
+
+  const handleSaveCvLink = async () => {
+    if (!actor) {
+      setCvLinkError("Actor not ready. Please wait or re-authenticate.");
+      return;
+    }
+    setCvLinkSaving(true);
+    setCvLinkError(null);
+    setCvLinkSaved(false);
+    try {
+      await actor.setCvLink(cvLinkInput.trim());
+      setCvLinkSaved(true);
+      setTimeout(() => setCvLinkSaved(false), 2000);
+    } catch (e) {
+      setCvLinkError(
+        e instanceof Error ? e.message : "Failed to save CV link.",
+      );
+    } finally {
+      setCvLinkSaving(false);
+    }
+  };
+
+  // ── Compute rows ──────────────────────────────────────────────────────────
+
+  const currentMeta = SECTION_META[activeSection];
+
+  const currentRows = (() => {
+    if (activeSection === "lectures") {
+      return lectures.map((l) => ({
+        id: l.id,
+        title: l.title,
+        isLive: l.isLive,
+        type: "Lecture",
+        onToggleLive: handleToggleLecture,
+        onDelete: handleDeleteLecture,
+      }));
+    }
+    if (activeSection === "students-works") {
+      return studentWorks.map((w) => ({
+        id: w.id,
+        title: w.title,
+        isLive: w.isLive,
+        type: "Work",
+        onToggleLive: handleToggleStudentWork,
+        onDelete: handleDeleteStudentWork,
+      }));
+    }
+    if (activeSection === "art-portfolio") {
+      return artItems.map((a) => ({
+        id: a.id,
+        title: a.title,
+        isLive: a.isLive,
+        type: "Image",
+        onToggleLive: handleToggleArtItem,
+        onDelete: handleDeleteArtItem,
+      }));
+    }
+    if (activeSection === "design-portfolio") {
+      return designItems.map((d) => ({
+        id: d.id,
+        title: d.title,
+        isLive: d.isLive,
+        type: "Design",
+        onToggleLive: handleToggleDesignItem,
+        onDelete: handleDeleteDesignItem,
+      }));
+    }
+    if (activeSection === "research") {
+      return researchItems.map((r) => ({
+        id: r.id,
+        title: r.title,
+        isLive: r.isLive,
+        type: "Research",
+        onToggleLive: handleToggleResearchItem,
+        onDelete: handleDeleteResearchItem,
+      }));
+    }
+    return [];
+  })();
+
+  // Principal display
+  const principalDisplay = identity
+    ? `${identity.getPrincipal().toString().slice(0, 16)}...`
+    : null;
+
+  if (!isAuthenticated) return null;
 
   return (
     <div
@@ -381,14 +1769,13 @@ export function AdminDashboard() {
           overflow: "hidden",
         }}
       >
-        {/* Sidebar top: brand label + back link */}
+        {/* Sidebar top: brand label */}
         <div
           style={{
             padding: "1.75rem 1.5rem 1.25rem",
             borderBottom: "1px solid rgba(229,224,216,0.06)",
           }}
         >
-          {/* System label */}
           <p
             style={{
               fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
@@ -414,6 +1801,37 @@ export function AdminDashboard() {
           >
             Anthropocene
           </p>
+          {/* Identity indicator */}
+          {principalDisplay && (
+            <p
+              style={{
+                fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                fontSize: "7px",
+                letterSpacing: "0.08em",
+                color: "rgba(76,175,80,0.7)",
+                margin: "0.5rem 0 0",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+              title={identity?.getPrincipal().toString()}
+            >
+              ● {principalDisplay}
+            </p>
+          )}
+          {isActorFetching && (
+            <p
+              style={{
+                fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                fontSize: "7px",
+                letterSpacing: "0.08em",
+                color: "rgba(229,224,216,0.3)",
+                margin: "0.5rem 0 0",
+              }}
+            >
+              Connecting to backend...
+            </p>
+          )}
         </div>
 
         {/* Nav items */}
@@ -432,12 +1850,12 @@ export function AdminDashboard() {
               key={item.id}
               item={item}
               isActive={activeSection === item.id}
-              onClick={() => setActiveSection(item.id)}
+              onClick={() => handleSectionChange(item.id)}
             />
           ))}
         </nav>
 
-        {/* Sidebar bottom: back to site */}
+        {/* Sidebar bottom */}
         <div
           style={{
             padding: "1.25rem 1.5rem",
@@ -480,6 +1898,39 @@ export function AdminDashboard() {
             </span>
           </button>
 
+          <button
+            type="button"
+            data-ocid="admin.logout.button"
+            onClick={handleLogout}
+            onMouseEnter={() => setIsHoveringLogout(true)}
+            onMouseLeave={() => setIsHoveringLogout(false)}
+            style={{
+              background: "none",
+              border: "none",
+              padding: 0,
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              cursor: "default",
+              marginTop: "0.75rem",
+              opacity: isHoveringLogout ? 1 : 0.35,
+              transition: "opacity 0.2s ease",
+            }}
+          >
+            <LogOut size={11} color="#8C3A3A" strokeWidth={1.5} />
+            <span
+              style={{
+                fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                fontSize: "8px",
+                letterSpacing: "0.2em",
+                textTransform: "uppercase",
+                color: "#8C3A3A",
+              }}
+            >
+              Sign out
+            </span>
+          </button>
+
           <p
             style={{
               fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
@@ -489,7 +1940,7 @@ export function AdminDashboard() {
               margin: "1rem 0 0",
             }}
           >
-            v0.1-alpha · No Auth
+            v1.0 · ICP Backend
           </p>
         </div>
       </motion.aside>
@@ -530,7 +1981,7 @@ export function AdminDashboard() {
                 margin: "0 0 0.3rem",
               }}
             >
-              Visual Interface — v0.1 (No Auth)
+              Anthropocene — Control Panel
             </p>
             <h1
               style={{
@@ -552,13 +2003,14 @@ export function AdminDashboard() {
           <button
             type="button"
             data-ocid="admin.add_entry.primary_button"
+            onClick={() => setShowAddModal(true)}
             onMouseEnter={() => setIsHoveringAdd(true)}
             onMouseLeave={() => setIsHoveringAdd(false)}
             style={{
               display: "flex",
               alignItems: "center",
               gap: "0.5rem",
-              background: "#8C3A3A",
+              background: isHoveringAdd ? "#a84444" : "#8C3A3A",
               border: "none",
               borderRadius: "0",
               padding: "0.75rem 1.5rem",
@@ -569,7 +2021,6 @@ export function AdminDashboard() {
               color: "#E5E0D8",
               cursor: "default",
               transition: "background 0.2s ease",
-              opacity: isHoveringAdd ? 1 : 0.9,
               flexShrink: 0,
             }}
           >
@@ -586,7 +2037,6 @@ export function AdminDashboard() {
             overflowY: "auto",
           }}
         >
-          {/* Section header */}
           <motion.div
             key={activeSection}
             initial={{ opacity: 0, y: 8 }}
@@ -598,7 +2048,7 @@ export function AdminDashboard() {
                 display: "flex",
                 alignItems: "baseline",
                 gap: "1rem",
-                marginBottom: "2.5rem",
+                marginBottom: "0.75rem",
               }}
             >
               <h2
@@ -611,7 +2061,7 @@ export function AdminDashboard() {
                   letterSpacing: "-0.015em",
                 }}
               >
-                {currentSection.title}
+                {currentMeta.title}
               </h2>
               <span
                 style={{
@@ -621,7 +2071,7 @@ export function AdminDashboard() {
                   color: "rgba(229,224,216,0.3)",
                 }}
               >
-                {currentSection.entries.length} entries
+                {isLoading ? "loading..." : `${currentRows.length} entries`}
               </span>
             </div>
 
@@ -636,67 +2086,286 @@ export function AdminDashboard() {
                 lineHeight: 1.7,
               }}
             >
-              {currentSection.description}
+              {currentMeta.description}
             </p>
 
-            {/* Placeholder rows — design skeleton */}
-            <div
-              data-ocid="admin.entries.list"
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "0",
-              }}
-            >
-              {/* Table header */}
+            {/* CV Link settings — design-portfolio only */}
+            {activeSection === "design-portfolio" && (
               <div
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 120px 80px 100px",
-                  padding: "0.6rem 1rem",
-                  borderBottom: "1px solid rgba(229,224,216,0.08)",
-                  marginBottom: "0",
+                  paddingBottom: "2rem",
+                  marginBottom: "2rem",
+                  borderBottom: "1px solid rgba(229,224,216,0.06)",
                 }}
               >
-                {["Title", "Status", "Type", "Actions"].map((col) => (
-                  <span
-                    key={col}
+                <span style={labelStyle}>CV Link / File URL</span>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "0.75rem",
+                    alignItems: "flex-start",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <input
+                    type="text"
+                    data-ocid="admin.cv.input"
+                    value={cvLinkInput}
+                    onChange={(e) => setCvLinkInput(e.target.value)}
+                    placeholder="https://figma.site/... or https://..."
+                    style={{ ...inputStyle, flex: "1 1 300px" }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor =
+                        "rgba(229,224,216,0.45)";
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor =
+                        "rgba(229,224,216,0.15)";
+                    }}
+                  />
+                  <button
+                    type="button"
+                    data-ocid="admin.cv.save_button"
+                    onClick={handleSaveCvLink}
+                    disabled={cvLinkSaving}
                     style={{
+                      background: "#8C3A3A",
+                      border: "none",
+                      borderRadius: "0",
+                      padding: "0.75rem 1.25rem",
                       fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
-                      fontSize: "8px",
-                      letterSpacing: "0.3em",
+                      fontSize: "9px",
+                      letterSpacing: "0.25em",
                       textTransform: "uppercase",
-                      color: "rgba(229,224,216,0.25)",
+                      color: "#E5E0D8",
+                      cursor: "default",
+                      transition: "background 0.2s ease",
+                      opacity: cvLinkSaving ? 0.6 : 1,
+                      flexShrink: 0,
+                      whiteSpace: "nowrap",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!cvLinkSaving) {
+                        (
+                          e.currentTarget as HTMLButtonElement
+                        ).style.background = "#a84444";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.background =
+                        "#8C3A3A";
                     }}
                   >
-                    {col}
-                  </span>
+                    {cvLinkSaving ? "Saving..." : "Save CV Link"}
+                  </button>
+                </div>
+                {cvLinkSaved && (
+                  <p
+                    data-ocid="admin.cv.success_state"
+                    style={{
+                      fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                      fontSize: "9px",
+                      letterSpacing: "0.12em",
+                      color: "#4CAF50",
+                      margin: "0.6rem 0 0",
+                    }}
+                  >
+                    Saved.
+                  </p>
+                )}
+                {cvLinkError && (
+                  <p
+                    data-ocid="admin.cv.error_state"
+                    style={{
+                      fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                      fontSize: "9px",
+                      letterSpacing: "0.06em",
+                      color: "#8C3A3A",
+                      margin: "0.6rem 0 0",
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    ⚠ {cvLinkError}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Load error */}
+            {loadError && (
+              <div
+                data-ocid="admin.entries.error_state"
+                style={{
+                  padding: "1rem",
+                  background: "rgba(140,58,58,0.08)",
+                  border: "1px solid rgba(140,58,58,0.2)",
+                  marginBottom: "1.5rem",
+                  fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                  fontSize: "10px",
+                  letterSpacing: "0.06em",
+                  color: "#8C3A3A",
+                  lineHeight: 1.6,
+                }}
+              >
+                ⚠ {loadError}
+              </div>
+            )}
+
+            {/* Loading state */}
+            {isLoading && (
+              <div
+                data-ocid="admin.entries.loading_state"
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.75rem",
+                }}
+              >
+                {[1, 2, 3].map((n) => (
+                  <div
+                    key={n}
+                    style={{
+                      height: "48px",
+                      background: "rgba(229,224,216,0.03)",
+                      borderRadius: "0",
+                      animation: "pulse 1.5s ease-in-out infinite",
+                    }}
+                  />
                 ))}
               </div>
+            )}
 
-              {/* Entry rows — keyed by stable ID */}
-              {currentSection.entries.map((entry, i) => (
-                <EntryRow key={entry.id} entry={entry} rowIndex={i + 1} />
-              ))}
-            </div>
+            {/* Table */}
+            {!isLoading && (
+              <div
+                data-ocid="admin.entries.list"
+                style={{ display: "flex", flexDirection: "column", gap: "0" }}
+              >
+                {/* Table header */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 100px 80px 140px",
+                    padding: "0.6rem 1rem",
+                    borderBottom: "1px solid rgba(229,224,216,0.08)",
+                  }}
+                >
+                  {["Title", "Status", "Type", "Actions"].map((col) => (
+                    <span
+                      key={col}
+                      style={{
+                        fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                        fontSize: "8px",
+                        letterSpacing: "0.3em",
+                        textTransform: "uppercase",
+                        color: "rgba(229,224,216,0.25)",
+                      }}
+                    >
+                      {col}
+                    </span>
+                  ))}
+                </div>
 
-            {/* Empty state hint */}
+                {/* Entry rows */}
+                {currentRows.map((row, i) => (
+                  <EntryRow
+                    key={Number(row.id)}
+                    id={row.id}
+                    title={row.title}
+                    isLive={row.isLive}
+                    type={row.type}
+                    rowIndex={i + 1}
+                    onToggleLive={row.onToggleLive}
+                    onDelete={row.onDelete}
+                  />
+                ))}
+
+                {/* Empty state */}
+                {currentRows.length === 0 && !isLoading && (
+                  <div
+                    data-ocid="admin.entries.empty_state"
+                    style={{
+                      padding: "3rem 1rem",
+                      textAlign: "center",
+                    }}
+                  >
+                    <p
+                      style={{
+                        fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                        fontSize: "10px",
+                        letterSpacing: "0.2em",
+                        textTransform: "uppercase",
+                        color: "rgba(229,224,216,0.18)",
+                        margin: 0,
+                      }}
+                    >
+                      No entries yet — add one above
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Footer hint */}
             <p
               style={{
                 fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
                 fontSize: "8px",
                 letterSpacing: "0.2em",
                 textTransform: "uppercase",
-                color: "rgba(229,224,216,0.12)",
+                color: "rgba(229,224,216,0.1)",
                 marginTop: "2rem",
                 textAlign: "right",
               }}
             >
-              Authentication & database not yet connected
+              Authenticated via ICP · Internet Identity
             </p>
           </motion.div>
         </div>
       </motion.main>
+
+      {/* ── Add Entry Modal ── */}
+      <AnimatePresence>
+        {showAddModal && (
+          <>
+            {activeSection === "lectures" && (
+              <AddLectureModal
+                onClose={() => setShowAddModal(false)}
+                onSuccess={() => loadSection("lectures")}
+                actor={actor}
+              />
+            )}
+            {activeSection === "students-works" && (
+              <AddStudentWorkModal
+                onClose={() => setShowAddModal(false)}
+                onSuccess={() => loadSection("students-works")}
+                actor={actor}
+              />
+            )}
+            {activeSection === "art-portfolio" && (
+              <AddArtItemModal
+                onClose={() => setShowAddModal(false)}
+                onSuccess={() => loadSection("art-portfolio")}
+                actor={actor}
+              />
+            )}
+            {activeSection === "design-portfolio" && (
+              <AddDesignPortfolioModal
+                onClose={() => setShowAddModal(false)}
+                onSuccess={() => loadSection("design-portfolio")}
+                actor={actor}
+              />
+            )}
+            {activeSection === "research" && (
+              <AddResearchItemModal
+                onClose={() => setShowAddModal(false)}
+                onSuccess={() => loadSection("research")}
+                actor={actor}
+              />
+            )}
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

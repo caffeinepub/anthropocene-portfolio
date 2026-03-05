@@ -7,6 +7,7 @@ import {
   useLocation,
 } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "motion/react";
+import { useEffect } from "react";
 import { CustomCursor } from "./components/CustomCursor";
 import { CursorProvider } from "./context/CursorContext";
 import { VisibilityContextProvider } from "./context/VisibilityContext";
@@ -40,6 +41,14 @@ function PageTransition({ children }: { children: React.ReactNode }) {
 // Root layout wraps all routes with cursor context
 function RootLayout() {
   const location = useLocation();
+
+  // Global smooth scroll — geological momentum feel across all pages
+  useEffect(() => {
+    document.documentElement.style.scrollBehavior = "smooth";
+    return () => {
+      document.documentElement.style.scrollBehavior = "";
+    };
+  }, []);
 
   return (
     <CursorProvider>
