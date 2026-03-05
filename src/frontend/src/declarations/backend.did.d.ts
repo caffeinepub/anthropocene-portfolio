@@ -21,6 +21,7 @@ export interface DesignPortfolioItem {
   'figmaUrl' : string,
   'client' : string,
   'title' : string,
+  'pdfData' : string,
   'imageData' : string,
   'tags' : Array<string>,
   'year' : string,
@@ -32,6 +33,7 @@ export interface LectureItem {
   'id' : bigint,
   'title' : string,
   'duration' : string,
+  'pdfData' : string,
   'description' : string,
   'isLive' : boolean,
   'prototypeUrl' : string,
@@ -45,11 +47,11 @@ export interface ResearchItem {
 }
 export interface StudentWorkItem {
   'id' : bigint,
-  'title' : string,
-  'tags' : Array<string>,
-  'year' : string,
+  'photoData' : string,
+  'pdfData' : string,
+  'studentName' : string,
+  'description' : string,
   'isLive' : boolean,
-  'student' : string,
 }
 export interface UserProfile { 'name' : string }
 export type UserRole = { 'admin' : null } |
@@ -59,15 +61,22 @@ export interface _SERVICE {
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'addArtItem' : ActorMethod<[string, string], bigint>,
   'addDesignPortfolio' : ActorMethod<
-    [string, string, string, Array<string>, string, string, string, string],
+    [
+      string,
+      string,
+      string,
+      Array<string>,
+      string,
+      string,
+      string,
+      string,
+      string,
+    ],
     bigint
   >,
-  'addLecture' : ActorMethod<[string, string, string, string], bigint>,
+  'addLecture' : ActorMethod<[string, string, string, string, string], bigint>,
   'addResearchItem' : ActorMethod<[string, string, string], bigint>,
-  'addStudentWork' : ActorMethod<
-    [string, string, string, Array<string>],
-    bigint
-  >,
+  'addStudentWork' : ActorMethod<[string, string, string, string], bigint>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'deleteArtItem' : ActorMethod<[bigint], boolean>,
   'deleteDesignPortfolio' : ActorMethod<[bigint], boolean>,
@@ -77,6 +86,7 @@ export interface _SERVICE {
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getCvLink' : ActorMethod<[], string>,
+  'getCvPdf' : ActorMethod<[], string>,
   'getProfessionalNarrative' : ActorMethod<[], string>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'healthCheck' : ActorMethod<[], boolean>,
@@ -94,6 +104,7 @@ export interface _SERVICE {
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'setArtItemLive' : ActorMethod<[bigint, boolean], boolean>,
   'setCvLink' : ActorMethod<[string], undefined>,
+  'setCvPdf' : ActorMethod<[string], undefined>,
   'setDesignPortfolioLive' : ActorMethod<[bigint, boolean], boolean>,
   'setLectureLive' : ActorMethod<[bigint, boolean], boolean>,
   'setProfessionalNarrative' : ActorMethod<[string], undefined>,

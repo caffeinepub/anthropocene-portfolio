@@ -25,6 +25,7 @@ export const DesignPortfolioItem = IDL.Record({
   'figmaUrl' : IDL.Text,
   'client' : IDL.Text,
   'title' : IDL.Text,
+  'pdfData' : IDL.Text,
   'imageData' : IDL.Text,
   'tags' : IDL.Vec(IDL.Text),
   'year' : IDL.Text,
@@ -36,6 +37,7 @@ export const LectureItem = IDL.Record({
   'id' : IDL.Nat,
   'title' : IDL.Text,
   'duration' : IDL.Text,
+  'pdfData' : IDL.Text,
   'description' : IDL.Text,
   'isLive' : IDL.Bool,
   'prototypeUrl' : IDL.Text,
@@ -49,11 +51,11 @@ export const ResearchItem = IDL.Record({
 });
 export const StudentWorkItem = IDL.Record({
   'id' : IDL.Nat,
-  'title' : IDL.Text,
-  'tags' : IDL.Vec(IDL.Text),
-  'year' : IDL.Text,
+  'photoData' : IDL.Text,
+  'pdfData' : IDL.Text,
+  'studentName' : IDL.Text,
+  'description' : IDL.Text,
   'isLive' : IDL.Bool,
-  'student' : IDL.Text,
 });
 
 export const idlService = IDL.Service({
@@ -69,18 +71,19 @@ export const idlService = IDL.Service({
         IDL.Text,
         IDL.Text,
         IDL.Text,
+        IDL.Text,
       ],
       [IDL.Nat],
       [],
     ),
   'addLecture' : IDL.Func(
-      [IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+      [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
       [IDL.Nat],
       [],
     ),
   'addResearchItem' : IDL.Func([IDL.Text, IDL.Text, IDL.Text], [IDL.Nat], []),
   'addStudentWork' : IDL.Func(
-      [IDL.Text, IDL.Text, IDL.Text, IDL.Vec(IDL.Text)],
+      [IDL.Text, IDL.Text, IDL.Text, IDL.Text],
       [IDL.Nat],
       [],
     ),
@@ -93,6 +96,7 @@ export const idlService = IDL.Service({
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
   'getCvLink' : IDL.Func([], [IDL.Text], ['query']),
+  'getCvPdf' : IDL.Func([], [IDL.Text], ['query']),
   'getProfessionalNarrative' : IDL.Func([], [IDL.Text], ['query']),
   'getUserProfile' : IDL.Func(
       [IDL.Principal],
@@ -122,6 +126,7 @@ export const idlService = IDL.Service({
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
   'setArtItemLive' : IDL.Func([IDL.Nat, IDL.Bool], [IDL.Bool], []),
   'setCvLink' : IDL.Func([IDL.Text], [], []),
+  'setCvPdf' : IDL.Func([IDL.Text], [], []),
   'setDesignPortfolioLive' : IDL.Func([IDL.Nat, IDL.Bool], [IDL.Bool], []),
   'setLectureLive' : IDL.Func([IDL.Nat, IDL.Bool], [IDL.Bool], []),
   'setProfessionalNarrative' : IDL.Func([IDL.Text], [], []),
@@ -149,6 +154,7 @@ export const idlFactory = ({ IDL }) => {
     'figmaUrl' : IDL.Text,
     'client' : IDL.Text,
     'title' : IDL.Text,
+    'pdfData' : IDL.Text,
     'imageData' : IDL.Text,
     'tags' : IDL.Vec(IDL.Text),
     'year' : IDL.Text,
@@ -160,6 +166,7 @@ export const idlFactory = ({ IDL }) => {
     'id' : IDL.Nat,
     'title' : IDL.Text,
     'duration' : IDL.Text,
+    'pdfData' : IDL.Text,
     'description' : IDL.Text,
     'isLive' : IDL.Bool,
     'prototypeUrl' : IDL.Text,
@@ -173,11 +180,11 @@ export const idlFactory = ({ IDL }) => {
   });
   const StudentWorkItem = IDL.Record({
     'id' : IDL.Nat,
-    'title' : IDL.Text,
-    'tags' : IDL.Vec(IDL.Text),
-    'year' : IDL.Text,
+    'photoData' : IDL.Text,
+    'pdfData' : IDL.Text,
+    'studentName' : IDL.Text,
+    'description' : IDL.Text,
     'isLive' : IDL.Bool,
-    'student' : IDL.Text,
   });
   
   return IDL.Service({
@@ -193,18 +200,19 @@ export const idlFactory = ({ IDL }) => {
           IDL.Text,
           IDL.Text,
           IDL.Text,
+          IDL.Text,
         ],
         [IDL.Nat],
         [],
       ),
     'addLecture' : IDL.Func(
-        [IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+        [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
         [IDL.Nat],
         [],
       ),
     'addResearchItem' : IDL.Func([IDL.Text, IDL.Text, IDL.Text], [IDL.Nat], []),
     'addStudentWork' : IDL.Func(
-        [IDL.Text, IDL.Text, IDL.Text, IDL.Vec(IDL.Text)],
+        [IDL.Text, IDL.Text, IDL.Text, IDL.Text],
         [IDL.Nat],
         [],
       ),
@@ -217,6 +225,7 @@ export const idlFactory = ({ IDL }) => {
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
     'getCvLink' : IDL.Func([], [IDL.Text], ['query']),
+    'getCvPdf' : IDL.Func([], [IDL.Text], ['query']),
     'getProfessionalNarrative' : IDL.Func([], [IDL.Text], ['query']),
     'getUserProfile' : IDL.Func(
         [IDL.Principal],
@@ -250,6 +259,7 @@ export const idlFactory = ({ IDL }) => {
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
     'setArtItemLive' : IDL.Func([IDL.Nat, IDL.Bool], [IDL.Bool], []),
     'setCvLink' : IDL.Func([IDL.Text], [], []),
+    'setCvPdf' : IDL.Func([IDL.Text], [], []),
     'setDesignPortfolioLive' : IDL.Func([IDL.Nat, IDL.Bool], [IDL.Bool], []),
     'setLectureLive' : IDL.Func([IDL.Nat, IDL.Bool], [IDL.Bool], []),
     'setProfessionalNarrative' : IDL.Func([IDL.Text], [], []),

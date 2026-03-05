@@ -1,197 +1,412 @@
-import { Eye, EyeOff } from "lucide-react";
-import { motion } from "motion/react";
-import { useEffect, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { useEffect, useRef, useState } from "react";
+import type { StudentWorkItem } from "../backend.d";
 import { AnthropoceneAnchor } from "../components/AnthropoceneAnchor";
 import { FacultySubNav } from "../components/FacultySubNav";
-import { useVisibility } from "../context/VisibilityContext";
 import { getBackend } from "../utils/getBackend";
 
 const GRAIN_SVG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`;
 
-// Cycle of card background colors — same as original design
-const CARD_COLORS = [
-  "#1C1C1C",
-  "#141414",
-  "#181818",
-  "#111111",
-  "#1E1A18",
-  "#151210",
-  "#121418",
-  "#161616",
-];
-
-interface StudentWorkDisplay {
-  id: string;
-  title: string;
-  student: string;
-  year: string;
-  tags: string[];
-  color: string;
-}
-
-interface WorkCardProps {
-  item: StudentWorkDisplay;
-  index: number;
-}
-
-function StudentCard({ item, index }: WorkCardProps) {
-  const { isVisible, toggleVisibility } = useVisibility();
-  const visible = isVisible(item.id);
+// ─── PDF Viewer Modal ──────────────────────────────────────────────────────────
+function PdfModal({
+  pdfData,
+  studentName,
+  onClose,
+}: {
+  pdfData: string;
+  studentName: string;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
 
   return (
     <motion.div
-      data-ocid={`students.card.item.${index + 1}`}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      whileHover={{ scale: 1.02, y: 4 }}
-      transition={{
-        duration: 0.6,
-        delay: 0.08 * index,
-        ease: [0.16, 1, 0.3, 1],
-        scale: { type: "spring", stiffness: 120, damping: 18, delay: 0 },
-        y: { type: "spring", stiffness: 120, damping: 18, delay: 0 },
-      }}
+      data-ocid="students.pdf.modal"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.25 }}
+      onClick={onClose}
       style={{
-        backgroundColor: item.color,
-        minHeight: "280px",
-        borderRadius: "2px",
-        border: "1px solid rgba(229,224,216,0.06)",
-        position: "relative",
-        overflow: "hidden",
-        cursor: "none",
+        position: "fixed",
+        inset: 0,
+        zIndex: 300,
+        background: "rgba(0,0,0,0.92)",
+        backdropFilter: "blur(8px)",
+        WebkitBackdropFilter: "blur(8px)",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "2rem",
       }}
     >
-      {/* Private overlay */}
-      {!visible && (
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background: "rgba(0,0,0,0.72)",
-            zIndex: 5,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <p
-            style={{
-              fontFamily: "Inter, system-ui, sans-serif",
-              fontSize: "9px",
-              letterSpacing: "0.3em",
-              textTransform: "uppercase",
-              color: "rgba(229,224,216,0.3)",
-            }}
-          >
-            Private
-          </p>
-        </div>
-      )}
-
-      {/* Eye toggle */}
+      {/* Close button */}
       <button
         type="button"
-        data-ocid={`students.card.toggle.${index + 1}`}
-        onClick={() => toggleVisibility(item.id)}
+        data-ocid="students.pdf.close_button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onClose();
+        }}
         style={{
-          position: "absolute",
-          top: "1rem",
-          right: "1rem",
-          zIndex: 10,
+          position: "fixed",
+          top: "1.75rem",
+          right: "2rem",
           background: "none",
           border: "none",
-          padding: "0",
-          cursor: "none",
-          color: "rgba(229,224,216,0.4)",
+          color: "rgba(229,224,216,0.45)",
+          fontSize: "24px",
+          cursor: "pointer",
+          lineHeight: 1,
+          padding: "0.5rem",
+          zIndex: 310,
+          fontFamily: '"JetBrains Mono", monospace',
           transition: "color 0.2s ease",
-          lineHeight: 0,
         }}
         onMouseEnter={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.color =
-            "rgba(229,224,216,1)";
+          (e.currentTarget as HTMLButtonElement).style.color = "#8C3A3A";
         }}
         onMouseLeave={(e) => {
           (e.currentTarget as HTMLButtonElement).style.color =
-            "rgba(229,224,216,0.4)";
+            "rgba(229,224,216,0.45)";
         }}
+        aria-label="Close PDF viewer"
       >
-        {visible ? <Eye size={14} /> : <EyeOff size={14} />}
+        ×
       </button>
 
-      {/* Card content */}
-      <div
+      {/* Header */}
+      <motion.p
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        onClick={(e) => e.stopPropagation()}
         style={{
-          padding: "1.75rem 1.5rem",
-          display: "flex",
-          flexDirection: "column",
-          height: "100%",
-          minHeight: "280px",
-          justifyContent: "flex-end",
+          fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+          fontSize: "9px",
+          letterSpacing: "0.25em",
+          textTransform: "uppercase",
+          color: "rgba(229,224,216,0.3)",
+          marginBottom: "1rem",
+          alignSelf: "flex-start",
+          maxWidth: "900px",
+          width: "100%",
         }}
       >
-        <div style={{ marginTop: "auto" }}>
-          <p
-            style={{
-              fontFamily: '"Playfair Display", Georgia, serif',
-              fontStyle: "italic",
-              fontWeight: 700,
-              fontSize: "clamp(17px, 1.8vw, 22px)",
-              color: "#E5E0D8",
-              margin: "0 0 0.4rem",
-              lineHeight: 1.2,
-            }}
-          >
-            {item.title}
-          </p>
-          <p
-            style={{
-              fontFamily: "Inter, system-ui, sans-serif",
-              fontSize: "11px",
-              color: "rgba(229,224,216,0.4)",
-              margin: "0 0 0.75rem",
-            }}
-          >
-            {item.student} — {item.year}
-          </p>
-          <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
-            {item.tags.map((tag) => (
-              <span
-                key={tag}
-                style={{
-                  fontFamily: "Inter, system-ui, sans-serif",
-                  fontSize: "9px",
-                  letterSpacing: "0.18em",
-                  textTransform: "uppercase",
-                  color: "rgba(229,224,216,0.28)",
-                }}
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
+        {studentName} — Student Work PDF
+      </motion.p>
+
+      {/* PDF iframe */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.97 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.97 }}
+        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%",
+          maxWidth: "900px",
+          height: "80vh",
+          border: "1px solid rgba(229,224,216,0.1)",
+          overflow: "hidden",
+          background: "#111111",
+        }}
+      >
+        <iframe
+          src={pdfData}
+          title={`${studentName} — PDF`}
+          style={{
+            width: "100%",
+            height: "100%",
+            border: "none",
+            background: "#111111",
+          }}
+        />
+      </motion.div>
+
+      <p
+        style={{
+          fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+          fontSize: "8px",
+          letterSpacing: "0.18em",
+          textTransform: "uppercase",
+          color: "rgba(229,224,216,0.15)",
+          marginTop: "0.75rem",
+          pointerEvents: "none",
+        }}
+      >
+        click outside to close · esc to dismiss
+      </p>
     </motion.div>
   );
 }
 
+// ─── Student Card ──────────────────────────────────────────────────────────────
+function StudentCard({
+  item,
+  index,
+}: {
+  item: StudentWorkItem;
+  index: number;
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [showPdf, setShowPdf] = useState(false);
+  const hasPdf = !!item.pdfData?.trim();
+
+  return (
+    <>
+      <motion.div
+        data-ocid={`students.card.item.${index + 1}`}
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{
+          duration: 0.7,
+          delay: 0.1 * index,
+          ease: [0.16, 1, 0.3, 1],
+        }}
+        style={{
+          display: "flex",
+          flexDirection: "row",
+          background: "#0e0e0e",
+          border: "1px solid rgba(229,224,216,0.06)",
+          borderRadius: "2px",
+          overflow: "hidden",
+          minHeight: "280px",
+        }}
+      >
+        {/* ── Left: Photo ── */}
+        <div
+          style={{
+            width: "38%",
+            flexShrink: 0,
+            background: "#111111",
+            overflow: "hidden",
+            position: "relative",
+          }}
+        >
+          {item.photoData ? (
+            <img
+              src={item.photoData}
+              alt={`${item.studentName} — student work`}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                display: "block",
+              }}
+            />
+          ) : (
+            <div
+              style={{
+                width: "100%",
+                height: "100%",
+                minHeight: "280px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <p
+                style={{
+                  fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                  fontSize: "8px",
+                  letterSpacing: "0.2em",
+                  textTransform: "uppercase",
+                  color: "rgba(229,224,216,0.15)",
+                  margin: 0,
+                }}
+              >
+                No photo
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* ── Right: Info ── */}
+        <div
+          style={{
+            flex: 1,
+            padding: "2rem 1.75rem",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+          }}
+        >
+          {/* Top: name + description */}
+          <div>
+            {/* Index tag */}
+            <p
+              style={{
+                fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                fontSize: "8px",
+                letterSpacing: "0.28em",
+                textTransform: "uppercase",
+                color: "rgba(140,58,58,0.7)",
+                margin: "0 0 0.6rem",
+              }}
+            >
+              Student Work — {String(index + 1).padStart(2, "0")}
+            </p>
+
+            {/* Student name */}
+            <h2
+              style={{
+                fontFamily: '"Playfair Display", Georgia, serif',
+                fontStyle: "italic",
+                fontWeight: 700,
+                fontSize: "clamp(20px, 2vw, 28px)",
+                color: "#E5E0D8",
+                margin: "0 0 1rem",
+                lineHeight: 1.2,
+                letterSpacing: "-0.01em",
+              }}
+            >
+              {item.studentName}
+            </h2>
+
+            {/* Description — collapsible if long */}
+            {item.description && (
+              <>
+                <p
+                  style={{
+                    fontFamily: "Inter, system-ui, sans-serif",
+                    fontSize: "13px",
+                    lineHeight: 1.75,
+                    color: "rgba(229,224,216,0.55)",
+                    margin: 0,
+                    display: "-webkit-box",
+                    WebkitBoxOrient: "vertical",
+                    WebkitLineClamp: isExpanded ? "unset" : 4,
+                    overflow: isExpanded ? "visible" : "hidden",
+                    transition: "all 0.3s ease",
+                  }}
+                >
+                  {item.description}
+                </p>
+                {item.description.length > 300 && (
+                  <button
+                    type="button"
+                    onClick={() => setIsExpanded((v) => !v)}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      padding: "0.4rem 0 0",
+                      fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                      fontSize: "8px",
+                      letterSpacing: "0.2em",
+                      textTransform: "uppercase",
+                      color: "rgba(229,224,216,0.3)",
+                      cursor: "default",
+                      transition: "color 0.2s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.color =
+                        "rgba(229,224,216,0.7)";
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.color =
+                        "rgba(229,224,216,0.3)";
+                    }}
+                  >
+                    {isExpanded ? "Show less ↑" : "Read more ↓"}
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Bottom: divider + PDF button */}
+          <div>
+            {/* Laterite Red rule */}
+            <div
+              style={{
+                width: "32px",
+                height: "1px",
+                background: "rgba(140,58,58,0.5)",
+                margin: "1.5rem 0",
+              }}
+            />
+
+            {hasPdf ? (
+              <button
+                type="button"
+                data-ocid={`students.card.pdf.open_modal_button.${index + 1}`}
+                onClick={() => setShowPdf(true)}
+                style={{
+                  background: "none",
+                  border: "1px solid rgba(229,224,216,0.18)",
+                  padding: "0.55rem 1.25rem",
+                  fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                  fontSize: "8px",
+                  letterSpacing: "0.25em",
+                  textTransform: "uppercase",
+                  color: "rgba(229,224,216,0.55)",
+                  cursor: "default",
+                  borderRadius: "0",
+                  transition: "border-color 0.2s ease, color 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  const el = e.currentTarget as HTMLButtonElement;
+                  el.style.borderColor = "rgba(140,58,58,0.55)";
+                  el.style.color = "#E5E0D8";
+                }}
+                onMouseLeave={(e) => {
+                  const el = e.currentTarget as HTMLButtonElement;
+                  el.style.borderColor = "rgba(229,224,216,0.18)";
+                  el.style.color = "rgba(229,224,216,0.55)";
+                }}
+              >
+                View Prototype / PDF
+              </button>
+            ) : (
+              <p
+                style={{
+                  fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                  fontSize: "8px",
+                  letterSpacing: "0.2em",
+                  textTransform: "uppercase",
+                  color: "rgba(229,224,216,0.15)",
+                  margin: 0,
+                }}
+              >
+                No PDF attached
+              </p>
+            )}
+          </div>
+        </div>
+      </motion.div>
+
+      {/* PDF Modal */}
+      <AnimatePresence>
+        {showPdf && hasPdf && (
+          <PdfModal
+            pdfData={item.pdfData}
+            studentName={item.studentName}
+            onClose={() => setShowPdf(false)}
+          />
+        )}
+      </AnimatePresence>
+    </>
+  );
+}
+
+// ─── Page ──────────────────────────────────────────────────────────────────────
 export function FacultyStudentsWorks() {
-  const [works, setWorks] = useState<StudentWorkDisplay[]>([]);
+  const [works, setWorks] = useState<StudentWorkItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     getBackend()
       .then((b) => b.listLiveStudentWorks())
       .then((items) => {
-        const mapped: StudentWorkDisplay[] = items.map((item, i) => ({
-          id: String(item.id),
-          title: item.title,
-          student: item.student,
-          year: item.year,
-          tags: item.tags,
-          color: CARD_COLORS[i % CARD_COLORS.length],
-        }));
-        setWorks(mapped);
+        setWorks(items);
       })
       .catch(() => {
         setWorks([]);
@@ -233,7 +448,7 @@ export function FacultyStudentsWorks() {
       {/* Main content */}
       <main
         style={{
-          maxWidth: "1100px",
+          maxWidth: "960px",
           margin: "0 auto",
           padding: "2.5rem 2rem 6rem",
           position: "relative",
@@ -281,13 +496,9 @@ export function FacultyStudentsWorks() {
             data-ocid="students.loading_state"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-              gap: "1.5rem",
-            }}
+            style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}
           >
-            {[1, 2, 3, 4].map((n) => (
+            {[1, 2, 3].map((n) => (
               <div
                 key={n}
                 style={{
@@ -325,18 +536,18 @@ export function FacultyStudentsWorks() {
           </motion.div>
         )}
 
-        {/* Grid */}
+        {/* Cards — vertical stack */}
         {!isLoading && works.length > 0 && (
           <div
             data-ocid="students.card.list"
             style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-              gap: "1.5rem",
+              display: "flex",
+              flexDirection: "column",
+              gap: "2.5rem",
             }}
           >
             {works.map((item, i) => (
-              <StudentCard key={item.id} item={item} index={i} />
+              <StudentCard key={item.id.toString()} item={item} index={i} />
             ))}
           </div>
         )}

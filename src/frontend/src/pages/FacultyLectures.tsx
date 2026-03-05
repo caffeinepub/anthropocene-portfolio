@@ -1,4 +1,4 @@
-import { Maximize2, Minimize2, Send, X } from "lucide-react";
+import { FileText, Maximize2, Minimize2, Send, X } from "lucide-react";
 import {
   AnimatePresence,
   type Easing,
@@ -303,6 +303,90 @@ interface LectureData {
   prototypeUrl: string;
   description: string;
   duration: string;
+  pdfData: string;
+}
+
+// ─── PDF Modal ────────────────────────────────────────────────────────────────
+
+function LecturePDFModal({
+  pdfData,
+  title,
+  onClose,
+}: {
+  pdfData: string;
+  title: string;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  return (
+    <motion.div
+      data-ocid="lectures.pdf.modal"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.25, ease: "easeOut" }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 200,
+        background: "rgba(0,0,0,0.95)",
+        display: "flex",
+        alignItems: "stretch",
+        justifyContent: "stretch",
+      }}
+    >
+      <button
+        type="button"
+        data-ocid="lectures.pdf.close_button"
+        onClick={onClose}
+        aria-label="Close PDF overlay"
+        style={{
+          position: "absolute",
+          top: "1.5rem",
+          right: "1.5rem",
+          zIndex: 210,
+          background: "none",
+          border: "none",
+          padding: "0.4rem",
+          cursor: "default",
+          color: "rgba(229,224,216,0.7)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          lineHeight: 0,
+          transition: "color 0.2s ease",
+        }}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLButtonElement).style.color = "#8C3A3A";
+        }}
+        onMouseLeave={(e) => {
+          (e.currentTarget as HTMLButtonElement).style.color =
+            "rgba(229,224,216,0.7)";
+        }}
+      >
+        <X size={24} strokeWidth={1.5} />
+      </button>
+
+      <embed
+        src={pdfData}
+        type="application/pdf"
+        title={`${title} — PDF`}
+        style={{
+          width: "100%",
+          height: "100%",
+          border: "none",
+          display: "block",
+        }}
+      />
+    </motion.div>
+  );
 }
 
 function StudioCard({
@@ -315,6 +399,8 @@ function StudioCard({
   const { setCursorLabel } = useCursor();
   const [isHoveringPrototype, setIsHoveringPrototype] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showPDFModal, setShowPDFModal] = useState(false);
+  const [isPDFButtonHovered, setIsPDFButtonHovered] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
   const { scrollYProgress } = useScroll({
@@ -559,6 +645,9 @@ function StudioCard({
                   marginTop: "2rem",
                   paddingTop: "1.5rem",
                   borderTop: "1px solid rgba(229,224,216,0.15)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.75rem",
                 }}
               >
                 <p
@@ -572,11 +661,57 @@ function StudioCard({
                 >
                   {lecture.duration}
                 </p>
+
+                {/* PDF button — only shown when pdfData is available */}
+                {lecture.pdfData && (
+                  <button
+                    type="button"
+                    data-ocid={`lectures.list.item.${index + 1}.pdf.open_modal_button`}
+                    onClick={() => setShowPDFModal(true)}
+                    onMouseEnter={() => setIsPDFButtonHovered(true)}
+                    onMouseLeave={() => setIsPDFButtonHovered(false)}
+                    style={{
+                      background: "none",
+                      border: `1px solid ${isPDFButtonHovered ? "rgba(229,224,216,0.85)" : "rgba(229,224,216,0.35)"}`,
+                      padding: "0.45rem 1rem",
+                      fontFamily: "Inter, system-ui, sans-serif",
+                      fontSize: "8px",
+                      letterSpacing: "0.25em",
+                      textTransform: "uppercase",
+                      color: "#E5E0D8",
+                      cursor: "default",
+                      borderRadius: "0",
+                      transition:
+                        "border-color 0.25s ease, box-shadow 0.25s ease",
+                      boxShadow: isPDFButtonHovered
+                        ? "0 0 10px rgba(229,224,216,0.1)"
+                        : "none",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.4rem",
+                      alignSelf: "flex-start",
+                    }}
+                  >
+                    <FileText size={11} strokeWidth={1.5} />
+                    View PDF
+                  </button>
+                )}
               </div>
             </motion.div>
           </div>
         </motion.div>
       </motion.div>
+
+      {/* PDF Modal */}
+      <AnimatePresence>
+        {showPDFModal && (
+          <LecturePDFModal
+            pdfData={lecture.pdfData}
+            title={lecture.title}
+            onClose={() => setShowPDFModal(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -696,6 +831,7 @@ export function FacultyLectures() {
           prototypeUrl: item.prototypeUrl,
           description: item.description,
           duration: item.duration,
+          pdfData: item.pdfData ?? "",
         }));
         setLectures(mapped);
       })

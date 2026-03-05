@@ -5,9 +5,9 @@ import Iter "mo:core/Iter";
 import Principal "mo:core/Principal";
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
-import Migration "migration";
 
-(with migration = Migration.run)
+
+
 actor {
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
@@ -15,6 +15,7 @@ actor {
   var professionalNarrative = "I am a multidisciplinary design educator and art practitioner working across printmaking, interaction design, and ecological performance. Currently, I serve as an Assistant Professor of Interaction Design at KMCT School of Design, Kerala, where I teach UX research and UI fundamentals. Previously, I was the Design Head at PrepLadder (Unacademy), leading a creative team of 16 in illustration and animation. I hold a Master of Fine Arts and a Bachelor of Fine Arts in Printmaking and Design from the Government College of Art, Chandigarh. My practice is recognized internationally, supported by a Venice Biennale Travel Grant and a MAIR Residency Fellowship in 2024. I specialize in bridging traditional mediums like Etching and Pottery with digital mastery in Figma and the Adobe Creative Suite.";
 
   var cvLink = "";
+  var cvPdfData = "";
 
   public type UserProfile = {
     name : Text;
@@ -27,14 +28,15 @@ actor {
     description : Text;
     duration : Text;
     isLive : Bool;
+    pdfData : Text;
   };
 
   public type StudentWorkItem = {
     id : Nat;
-    title : Text;
-    student : Text;
-    year : Text;
-    tags : [Text];
+    studentName : Text;
+    description : Text;
+    photoData : Text;
+    pdfData : Text;
     isLive : Bool;
   };
 
@@ -56,6 +58,7 @@ actor {
     imageData : Text;
     videoUrl : Text;
     description : Text;
+    pdfData : Text;
   };
 
   public type ResearchItem = {
@@ -79,9 +82,9 @@ actor {
   var nextDesignPortfolioId = 1;
   var nextResearchItemId = 1;
 
-  func checkNotGuest(caller : Principal) {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can perform this action");
+  func checkAdmin(caller : Principal) {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can perform this action");
     };
   };
 
@@ -91,9 +94,7 @@ actor {
   };
 
   public shared ({ caller }) func setProfessionalNarrative(narrative : Text) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can update the professional narrative");
-    };
+    checkAdmin(caller);
     professionalNarrative := narrative;
   };
 
@@ -120,8 +121,14 @@ actor {
   };
 
   // LECTURES
-  public shared ({ caller }) func addLecture(title : Text, prototypeUrl : Text, description : Text, duration : Text) : async Nat {
-    checkNotGuest(caller);
+  public shared ({ caller }) func addLecture(
+    title : Text,
+    prototypeUrl : Text,
+    description : Text,
+    duration : Text,
+    pdfData : Text,
+  ) : async Nat {
+    checkAdmin(caller);
     let id = nextLectureId;
     let lecture : LectureItem = {
       id;
@@ -129,6 +136,7 @@ actor {
       prototypeUrl;
       description;
       duration;
+      pdfData;
       isLive = false;
     };
     lectures.add(id, lecture);
@@ -137,7 +145,7 @@ actor {
   };
 
   public shared ({ caller }) func deleteLecture(id : Nat) : async Bool {
-    checkNotGuest(caller);
+    checkAdmin(caller);
     switch (lectures.get(id)) {
       case (null) { false };
       case (?_) {
@@ -148,7 +156,7 @@ actor {
   };
 
   public shared ({ caller }) func setLectureLive(id : Nat, isLive : Bool) : async Bool {
-    checkNotGuest(caller);
+    checkAdmin(caller);
     switch (lectures.get(id)) {
       case (null) { false };
       case (?existing) {
@@ -159,7 +167,10 @@ actor {
     };
   };
 
-  public query func listAllLectures() : async [LectureItem] {
+  public query ({ caller }) func listAllLectures() : async [LectureItem] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can view all lectures");
+    };
     lectures.values().toArray();
   };
 
@@ -168,15 +179,20 @@ actor {
   };
 
   // STUDENT WORK
-  public shared ({ caller }) func addStudentWork(title : Text, student : Text, year : Text, tags : [Text]) : async Nat {
-    checkNotGuest(caller);
+  public shared ({ caller }) func addStudentWork(
+    studentName : Text,
+    description : Text,
+    photoData : Text,
+    pdfData : Text,
+  ) : async Nat {
+    checkAdmin(caller);
     let id = nextStudentWorkId;
     let work : StudentWorkItem = {
       id;
-      title;
-      student;
-      year;
-      tags;
+      studentName;
+      description;
+      photoData;
+      pdfData;
       isLive = false;
     };
     studentWorks.add(id, work);
@@ -185,7 +201,7 @@ actor {
   };
 
   public shared ({ caller }) func deleteStudentWork(id : Nat) : async Bool {
-    checkNotGuest(caller);
+    checkAdmin(caller);
     switch (studentWorks.get(id)) {
       case (null) { false };
       case (?_) {
@@ -196,7 +212,7 @@ actor {
   };
 
   public shared ({ caller }) func setStudentWorkLive(id : Nat, isLive : Bool) : async Bool {
-    checkNotGuest(caller);
+    checkAdmin(caller);
     switch (studentWorks.get(id)) {
       case (null) { false };
       case (?existing) {
@@ -207,7 +223,10 @@ actor {
     };
   };
 
-  public query func listAllStudentWorks() : async [StudentWorkItem] {
+  public query ({ caller }) func listAllStudentWorks() : async [StudentWorkItem] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can view all student works");
+    };
     studentWorks.values().toArray();
   };
 
@@ -217,7 +236,7 @@ actor {
 
   // ART PORTFOLIO
   public shared ({ caller }) func addArtItem(title : Text, imagePath : Text) : async Nat {
-    checkNotGuest(caller);
+    checkAdmin(caller);
     let id = nextArtId;
     let item : ArtPortfolioItem = {
       id;
@@ -231,7 +250,7 @@ actor {
   };
 
   public shared ({ caller }) func deleteArtItem(id : Nat) : async Bool {
-    checkNotGuest(caller);
+    checkAdmin(caller);
     switch (artPortfolio.get(id)) {
       case (null) { false };
       case (?_) {
@@ -242,7 +261,7 @@ actor {
   };
 
   public shared ({ caller }) func setArtItemLive(id : Nat, isLive : Bool) : async Bool {
-    checkNotGuest(caller);
+    checkAdmin(caller);
     switch (artPortfolio.get(id)) {
       case (null) { false };
       case (?existing) {
@@ -253,7 +272,10 @@ actor {
     };
   };
 
-  public query func listAllArtItems() : async [ArtPortfolioItem] {
+  public query ({ caller }) func listAllArtItems() : async [ArtPortfolioItem] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can view all art items");
+    };
     artPortfolio.values().toArray();
   };
 
@@ -271,8 +293,9 @@ actor {
     imageData : Text,
     videoUrl : Text,
     description : Text,
+    pdfData : Text,
   ) : async Nat {
-    checkNotGuest(caller);
+    checkAdmin(caller);
     let id = nextDesignPortfolioId;
     let item : DesignPortfolioItem = {
       id;
@@ -280,11 +303,12 @@ actor {
       client;
       year;
       tags;
-      isLive = false;
       figmaUrl;
       imageData;
       videoUrl;
       description;
+      pdfData;
+      isLive = false;
     };
     designPortfolio.add(id, item);
     nextDesignPortfolioId += 1;
@@ -292,7 +316,7 @@ actor {
   };
 
   public shared ({ caller }) func deleteDesignPortfolio(id : Nat) : async Bool {
-    checkNotGuest(caller);
+    checkAdmin(caller);
     switch (designPortfolio.get(id)) {
       case (null) { false };
       case (?_) {
@@ -303,7 +327,7 @@ actor {
   };
 
   public shared ({ caller }) func setDesignPortfolioLive(id : Nat, isLive : Bool) : async Bool {
-    checkNotGuest(caller);
+    checkAdmin(caller);
     switch (designPortfolio.get(id)) {
       case (null) { false };
       case (?existing) {
@@ -314,7 +338,10 @@ actor {
     };
   };
 
-  public query func listAllDesignPortfolio() : async [DesignPortfolioItem] {
+  public query ({ caller }) func listAllDesignPortfolio() : async [DesignPortfolioItem] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can view all design portfolio items");
+    };
     designPortfolio.values().toArray();
   };
 
@@ -323,8 +350,12 @@ actor {
   };
 
   // RESEARCH ITEMS
-  public shared ({ caller }) func addResearchItem(title : Text, description : Text, imagePath : Text) : async Nat {
-    checkNotGuest(caller);
+  public shared ({ caller }) func addResearchItem(
+    title : Text,
+    description : Text,
+    imagePath : Text,
+  ) : async Nat {
+    checkAdmin(caller);
     let id = nextResearchItemId;
     let item : ResearchItem = {
       id;
@@ -339,7 +370,7 @@ actor {
   };
 
   public shared ({ caller }) func deleteResearchItem(id : Nat) : async Bool {
-    checkNotGuest(caller);
+    checkAdmin(caller);
     switch (researchItems.get(id)) {
       case (null) { false };
       case (?_) {
@@ -350,7 +381,7 @@ actor {
   };
 
   public shared ({ caller }) func setResearchItemLive(id : Nat, isLive : Bool) : async Bool {
-    checkNotGuest(caller);
+    checkAdmin(caller);
     switch (researchItems.get(id)) {
       case (null) { false };
       case (?existing) {
@@ -361,7 +392,10 @@ actor {
     };
   };
 
-  public query func listAllResearchItems() : async [ResearchItem] {
+  public query ({ caller }) func listAllResearchItems() : async [ResearchItem] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can view all research items");
+    };
     researchItems.values().toArray();
   };
 
@@ -374,12 +408,22 @@ actor {
   };
 
   // CV LINK FUNCTIONALITY
-  public query ({ caller }) func getCvLink() : async Text {
+  public query func getCvLink() : async Text {
     cvLink;
   };
 
   public shared ({ caller }) func setCvLink(link : Text) : async () {
-    checkNotGuest(caller);
+    checkAdmin(caller);
     cvLink := link;
+  };
+
+  // CV PDF FUNCTIONALITY
+  public query func getCvPdf() : async Text {
+    cvPdfData;
+  };
+
+  public shared ({ caller }) func setCvPdf(data : Text) : async () {
+    checkAdmin(caller);
+    cvPdfData := data;
   };
 };

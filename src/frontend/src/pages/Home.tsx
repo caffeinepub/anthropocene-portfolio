@@ -144,6 +144,7 @@ export function Home() {
     // Unmute video imperatively — React doesn't update the muted DOM attribute reactively
     if (videoRef.current) {
       videoRef.current.muted = false;
+      videoRef.current.volume = 0.15;
     }
 
     // Animate mask from flashlight to full reveal

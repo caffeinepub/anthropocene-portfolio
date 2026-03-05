@@ -5,6 +5,9 @@ import { useCursor } from "../context/CursorContext";
 import { useAdminAuth } from "../hooks/useAdminAuth";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 
+// useInternetIdentity is imported so the hook context is initialized correctly
+// but II login is now handled on the dashboard, not the login page.
+
 function CursorReset() {
   const { setIsRevealed, setCursorLabel, setSuppressDefaultLabel } =
     useCursor();
@@ -23,20 +26,12 @@ function CursorReset() {
 export function AdminLogin() {
   const navigate = useNavigate();
   const { login } = useAdminAuth();
-  const { login: iiLogin, identity, isLoggingIn } = useInternetIdentity();
+  // Keep hook instantiated for context initialisation; II login happens on dashboard
+  useInternetIdentity();
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isHoveringBtn, setIsHoveringBtn] = useState(false);
-  // Track whether password was accepted and we're now awaiting II
-  const [awaitingII, setAwaitingII] = useState(false);
-
-  // Once II identity is ready after password was accepted, navigate to dashboard
-  useEffect(() => {
-    if (awaitingII && identity) {
-      navigate({ to: "/admin/dashboard" });
-    }
-  }, [awaitingII, identity, navigate]);
 
   const handleEnter = async () => {
     if (!password) {
@@ -52,16 +47,12 @@ export function AdminLogin() {
       return;
     }
 
-    // Password accepted — now trigger Internet Identity login
-    // to get an authenticated principal for backend calls.
-    // iiLogin() opens a popup and returns synchronously — do NOT await it.
-    // Navigation happens in the useEffect above when identity becomes available.
-    setAwaitingII(true);
-    setIsLoading(false);
-    iiLogin();
+    // Password accepted — navigate directly to dashboard.
+    // The dashboard will prompt for Internet Identity if needed.
+    navigate({ to: "/admin/dashboard" });
   };
 
-  const isButtonLoading = isLoading || isLoggingIn;
+  const isButtonLoading = isLoading;
 
   return (
     <div
@@ -183,9 +174,7 @@ export function AdminLogin() {
               margin: 0,
             }}
           >
-            {awaitingII
-              ? "Opening Internet Identity..."
-              : "Enter password to continue"}
+            Enter password to continue
           </motion.p>
         </div>
 
@@ -223,7 +212,7 @@ export function AdminLogin() {
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleEnter();
               }}
-              disabled={awaitingII}
+              disabled={isLoading}
               style={{
                 width: "100%",
                 background: "#1a1a1a",
@@ -235,9 +224,9 @@ export function AdminLogin() {
                 color: "#E5E0D8",
                 outline: "none",
                 transition: "border-color 0.25s ease",
-                cursor: awaitingII ? "default" : "text",
+                cursor: isLoading ? "default" : "text",
                 boxSizing: "border-box",
-                opacity: awaitingII ? 0.5 : 1,
+                opacity: isLoading ? 0.5 : 1,
               }}
               onFocus={(e) => {
                 e.currentTarget.style.borderColor = "rgba(229,224,216,0.55)";
@@ -247,34 +236,6 @@ export function AdminLogin() {
               }}
             />
           </div>
-
-          {/* II waiting indicator */}
-          {awaitingII && isLoggingIn && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              style={{
-                marginBottom: "1.25rem",
-                padding: "0.875rem 1rem",
-                background: "rgba(229,224,216,0.03)",
-                border: "1px solid rgba(229,224,216,0.08)",
-              }}
-            >
-              <p
-                style={{
-                  fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
-                  fontSize: "9px",
-                  letterSpacing: "0.15em",
-                  color: "rgba(229,224,216,0.5)",
-                  margin: 0,
-                  lineHeight: 1.6,
-                }}
-              >
-                A login window has opened. Complete authentication there to
-                proceed. If the window didn't open, allow popups and try again.
-              </p>
-            </motion.div>
-          )}
 
           {/* Error message */}
           {error && (
@@ -322,11 +283,7 @@ export function AdminLogin() {
               opacity: isButtonLoading ? 0.6 : 1,
             }}
           >
-            {isLoggingIn
-              ? "Opening Identity..."
-              : isLoading
-                ? "Verifying..."
-                : "Enter"}
+            {isLoading ? "Verifying..." : "Enter"}
           </button>
         </motion.div>
       </motion.div>

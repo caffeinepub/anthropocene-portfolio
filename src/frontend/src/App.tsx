@@ -11,6 +11,7 @@ import { useEffect } from "react";
 import { CustomCursor } from "./components/CustomCursor";
 import { CursorProvider } from "./context/CursorContext";
 import { VisibilityContextProvider } from "./context/VisibilityContext";
+import { InternetIdentityProvider } from "./hooks/useInternetIdentity";
 import { AdminDashboard } from "./pages/AdminDashboard";
 import { AdminLogin } from "./pages/AdminLogin";
 import { Art } from "./pages/Art";
@@ -157,5 +158,9 @@ declare module "@tanstack/react-router" {
 }
 
 export default function App() {
-  return <RouterProvider router={router} />;
+  return (
+    <InternetIdentityProvider>
+      <RouterProvider router={router} />
+    </InternetIdentityProvider>
+  );
 }

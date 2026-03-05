@@ -94,6 +94,7 @@ export interface DesignPortfolioItem {
     figmaUrl: string;
     client: string;
     title: string;
+    pdfData: string;
     imageData: string;
     tags: Array<string>;
     year: string;
@@ -110,16 +111,17 @@ export interface ResearchItem {
 }
 export interface StudentWorkItem {
     id: bigint;
-    title: string;
-    tags: Array<string>;
-    year: string;
+    photoData: string;
+    pdfData: string;
+    studentName: string;
+    description: string;
     isLive: boolean;
-    student: string;
 }
 export interface LectureItem {
     id: bigint;
     title: string;
     duration: string;
+    pdfData: string;
     description: string;
     isLive: boolean;
     prototypeUrl: string;
@@ -141,10 +143,10 @@ export enum UserRole {
 export interface backendInterface {
     _initializeAccessControlWithSecret(userSecret: string): Promise<void>;
     addArtItem(title: string, imagePath: string): Promise<bigint>;
-    addDesignPortfolio(title: string, client: string, year: string, tags: Array<string>, figmaUrl: string, imageData: string, videoUrl: string, description: string): Promise<bigint>;
-    addLecture(title: string, prototypeUrl: string, description: string, duration: string): Promise<bigint>;
+    addDesignPortfolio(title: string, client: string, year: string, tags: Array<string>, figmaUrl: string, imageData: string, videoUrl: string, description: string, pdfData: string): Promise<bigint>;
+    addLecture(title: string, prototypeUrl: string, description: string, duration: string, pdfData: string): Promise<bigint>;
     addResearchItem(title: string, description: string, imagePath: string): Promise<bigint>;
-    addStudentWork(title: string, student: string, year: string, tags: Array<string>): Promise<bigint>;
+    addStudentWork(studentName: string, description: string, photoData: string, pdfData: string): Promise<bigint>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     deleteArtItem(id: bigint): Promise<boolean>;
     deleteDesignPortfolio(id: bigint): Promise<boolean>;
@@ -154,6 +156,7 @@ export interface backendInterface {
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
     getCvLink(): Promise<string>;
+    getCvPdf(): Promise<string>;
     getProfessionalNarrative(): Promise<string>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     healthCheck(): Promise<boolean>;
@@ -171,6 +174,7 @@ export interface backendInterface {
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     setArtItemLive(id: bigint, isLive: boolean): Promise<boolean>;
     setCvLink(link: string): Promise<void>;
+    setCvPdf(data: string): Promise<void>;
     setDesignPortfolioLive(id: bigint, isLive: boolean): Promise<boolean>;
     setLectureLive(id: bigint, isLive: boolean): Promise<boolean>;
     setProfessionalNarrative(narrative: string): Promise<void>;
@@ -208,31 +212,31 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async addDesignPortfolio(arg0: string, arg1: string, arg2: string, arg3: Array<string>, arg4: string, arg5: string, arg6: string, arg7: string): Promise<bigint> {
+    async addDesignPortfolio(arg0: string, arg1: string, arg2: string, arg3: Array<string>, arg4: string, arg5: string, arg6: string, arg7: string, arg8: string): Promise<bigint> {
         if (this.processError) {
             try {
-                const result = await this.actor.addDesignPortfolio(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7);
+                const result = await this.actor.addDesignPortfolio(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.addDesignPortfolio(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7);
+            const result = await this.actor.addDesignPortfolio(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
             return result;
         }
     }
-    async addLecture(arg0: string, arg1: string, arg2: string, arg3: string): Promise<bigint> {
+    async addLecture(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string): Promise<bigint> {
         if (this.processError) {
             try {
-                const result = await this.actor.addLecture(arg0, arg1, arg2, arg3);
+                const result = await this.actor.addLecture(arg0, arg1, arg2, arg3, arg4);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.addLecture(arg0, arg1, arg2, arg3);
+            const result = await this.actor.addLecture(arg0, arg1, arg2, arg3, arg4);
             return result;
         }
     }
@@ -250,7 +254,7 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async addStudentWork(arg0: string, arg1: string, arg2: string, arg3: Array<string>): Promise<bigint> {
+    async addStudentWork(arg0: string, arg1: string, arg2: string, arg3: string): Promise<bigint> {
         if (this.processError) {
             try {
                 const result = await this.actor.addStudentWork(arg0, arg1, arg2, arg3);
@@ -387,6 +391,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.getCvLink();
+            return result;
+        }
+    }
+    async getCvPdf(): Promise<string> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getCvPdf();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getCvPdf();
             return result;
         }
     }
@@ -625,6 +643,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.setCvLink(arg0);
+            return result;
+        }
+    }
+    async setCvPdf(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.setCvPdf(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.setCvPdf(arg0);
             return result;
         }
     }

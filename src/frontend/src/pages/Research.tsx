@@ -734,7 +734,7 @@ export function Research() {
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    audio.volume = 0.04;
+    audio.volume = 1.0;
     audio.play().catch(() => {
       // Autoplay blocked — will retry on user interaction (Enter Canvas click)
     });
@@ -930,7 +930,7 @@ export function Research() {
       {/* biome-ignore lint/a11y/useMediaCaption: ambient background sound, no dialogue */}
       <audio
         ref={audioRef}
-        src="/assets/eryliaa-forest-birds-with-wind-and-crickets-445147.mp3"
+        src="https://res.cloudinary.com/dvmvka9ll/video/upload/v1772701104/eryliaa-forest-birds-with-wind-and-crickets-445147_pvopc9.mp3"
         loop
         preload="auto"
       />
@@ -1002,9 +1002,9 @@ export function Research() {
               padding: "2rem",
             }}
           >
-            {/* Background image — sketchbook texture */}
+            {/* Background image — sketchbook texture, full opacity */}
             <img
-              src="/assets/uploads/background-image-1.jpg"
+              src="https://res.cloudinary.com/dvmvka9ll/image/upload/v1772701097/npm_vnylxz.jpg"
               aria-hidden="true"
               alt=""
               draggable={false}
@@ -1014,35 +1014,9 @@ export function Research() {
                 width: "100%",
                 height: "100%",
                 objectFit: "cover",
-                opacity: 0.15,
+                opacity: 1,
                 pointerEvents: "none",
                 userSelect: "none",
-                zIndex: 0,
-              }}
-            />
-
-            {/* Dark overlay on top of background image */}
-            <div
-              aria-hidden="true"
-              style={{
-                position: "absolute",
-                inset: 0,
-                background: "rgba(0,0,0,0.75)",
-                zIndex: 0,
-                pointerEvents: "none",
-              }}
-            />
-
-            {/* Subtle dot grid behind overlay */}
-            <div
-              aria-hidden="true"
-              style={{
-                position: "absolute",
-                inset: 0,
-                backgroundImage:
-                  "radial-gradient(rgba(229,224,216,0.04) 1px, transparent 1px)",
-                backgroundSize: "32px 32px",
-                pointerEvents: "none",
                 zIndex: 0,
               }}
             />
@@ -1136,6 +1110,30 @@ export function Research() {
           overflow: "hidden",
         }}
       >
+        {/* Loading indicator — shown while waiting for backend response */}
+        {!backendLoaded && (
+          <motion.div
+            data-ocid="research.loading_state"
+            animate={{ opacity: [0.2, 0.7, 0.2] }}
+            transition={{
+              duration: 1.8,
+              repeat: Number.POSITIVE_INFINITY,
+              ease: "easeInOut",
+            }}
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              width: "40px",
+              height: "2px",
+              background: "rgba(140,58,58,0.6)",
+              pointerEvents: "none",
+              zIndex: 20,
+            }}
+          />
+        )}
+
         {/* Motoko backend image cards */}
         {showItems &&
           researchItems.map((item, index) => (

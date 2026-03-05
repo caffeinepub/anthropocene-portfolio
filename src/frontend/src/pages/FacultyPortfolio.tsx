@@ -1,4 +1,4 @@
-import { Maximize2, Minimize2, X } from "lucide-react";
+import { FileText, Maximize2, Minimize2, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { AnthropoceneAnchor } from "../components/AnthropoceneAnchor";
@@ -334,6 +334,90 @@ interface PortfolioItemDisplay {
   imageData: string;
   videoUrl: string;
   description: string;
+  pdfData: string;
+}
+
+// ─── Portfolio Item PDF Modal ──────────────────────────────────────────────────
+
+function PortfolioPDFModal({
+  pdfData,
+  title,
+  onClose,
+}: {
+  pdfData: string;
+  title: string;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  return (
+    <motion.div
+      data-ocid="portfolio.pdf.modal"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.25, ease: "easeOut" }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 200,
+        background: "rgba(0,0,0,0.95)",
+        display: "flex",
+        alignItems: "stretch",
+        justifyContent: "stretch",
+      }}
+    >
+      <button
+        type="button"
+        data-ocid="portfolio.pdf.close_button"
+        onClick={onClose}
+        aria-label="Close PDF overlay"
+        style={{
+          position: "absolute",
+          top: "1.5rem",
+          right: "1.5rem",
+          zIndex: 210,
+          background: "none",
+          border: "none",
+          padding: "0.4rem",
+          cursor: "default",
+          color: "rgba(229,224,216,0.7)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          lineHeight: 0,
+          transition: "color 0.2s ease",
+        }}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLButtonElement).style.color = "#8C3A3A";
+        }}
+        onMouseLeave={(e) => {
+          (e.currentTarget as HTMLButtonElement).style.color =
+            "rgba(229,224,216,0.7)";
+        }}
+      >
+        <X size={24} strokeWidth={1.5} />
+      </button>
+
+      <embed
+        src={pdfData}
+        type="application/pdf"
+        title={`${title} — PDF`}
+        style={{
+          width: "100%",
+          height: "100%",
+          border: "none",
+          display: "block",
+        }}
+      />
+    </motion.div>
+  );
 }
 
 interface PortfolioCardProps {
@@ -413,6 +497,8 @@ function PortfolioMediaZone({
 
 function PortfolioCard({ item, index }: PortfolioCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showPDFModal, setShowPDFModal] = useState(false);
+  const [isPDFButtonHovered, setIsPDFButtonHovered] = useState(false);
   const hasMedia = !!(item.figmaUrl || item.imageData || item.videoUrl);
 
   return (
@@ -599,6 +685,59 @@ function PortfolioCard({ item, index }: PortfolioCardProps) {
           </p>
         </div>
       )}
+
+      {/* PDF button footer — shown when pdfData is available */}
+      {item.pdfData && (
+        <div
+          style={{
+            padding: "0.85rem 1.5rem",
+            borderTop: "1px solid rgba(229,224,216,0.05)",
+            display: "flex",
+            justifyContent: "flex-start",
+          }}
+        >
+          <button
+            type="button"
+            data-ocid={`portfolio.card.item.${index + 1}.pdf.open_modal_button`}
+            onClick={() => setShowPDFModal(true)}
+            onMouseEnter={() => setIsPDFButtonHovered(true)}
+            onMouseLeave={() => setIsPDFButtonHovered(false)}
+            style={{
+              background: "none",
+              border: `1px solid ${isPDFButtonHovered ? "rgba(229,224,216,0.75)" : "rgba(229,224,216,0.28)"}`,
+              padding: "0.4rem 0.9rem",
+              fontFamily: "Inter, system-ui, sans-serif",
+              fontSize: "8px",
+              letterSpacing: "0.22em",
+              textTransform: "uppercase",
+              color: "#E5E0D8",
+              cursor: "default",
+              borderRadius: "0",
+              transition: "border-color 0.25s ease, box-shadow 0.25s ease",
+              boxShadow: isPDFButtonHovered
+                ? "0 0 8px rgba(229,224,216,0.08)"
+                : "none",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.4rem",
+            }}
+          >
+            <FileText size={11} strokeWidth={1.5} />
+            View PDF
+          </button>
+        </div>
+      )}
+
+      {/* PDF Modal */}
+      <AnimatePresence>
+        {showPDFModal && (
+          <PortfolioPDFModal
+            pdfData={item.pdfData}
+            title={item.title}
+            onClose={() => setShowPDFModal(false)}
+          />
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
@@ -622,6 +761,7 @@ export function FacultyPortfolio() {
           imageData: item.imageData ?? "",
           videoUrl: item.videoUrl ?? "",
           description: item.description ?? "",
+          pdfData: item.pdfData ?? "",
         }));
         setItems(mapped);
       })

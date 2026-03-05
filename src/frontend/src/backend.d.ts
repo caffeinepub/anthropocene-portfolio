@@ -12,6 +12,7 @@ export interface DesignPortfolioItem {
     figmaUrl: string;
     client: string;
     title: string;
+    pdfData: string;
     imageData: string;
     tags: Array<string>;
     year: string;
@@ -28,16 +29,17 @@ export interface ResearchItem {
 }
 export interface StudentWorkItem {
     id: bigint;
-    title: string;
-    tags: Array<string>;
-    year: string;
+    photoData: string;
+    pdfData: string;
+    studentName: string;
+    description: string;
     isLive: boolean;
-    student: string;
 }
 export interface LectureItem {
     id: bigint;
     title: string;
     duration: string;
+    pdfData: string;
     description: string;
     isLive: boolean;
     prototypeUrl: string;
@@ -58,10 +60,10 @@ export enum UserRole {
 }
 export interface backendInterface {
     addArtItem(title: string, imagePath: string): Promise<bigint>;
-    addDesignPortfolio(title: string, client: string, year: string, tags: Array<string>, figmaUrl: string, imageData: string, videoUrl: string, description: string): Promise<bigint>;
-    addLecture(title: string, prototypeUrl: string, description: string, duration: string): Promise<bigint>;
+    addDesignPortfolio(title: string, client: string, year: string, tags: Array<string>, figmaUrl: string, imageData: string, videoUrl: string, description: string, pdfData: string): Promise<bigint>;
+    addLecture(title: string, prototypeUrl: string, description: string, duration: string, pdfData: string): Promise<bigint>;
     addResearchItem(title: string, description: string, imagePath: string): Promise<bigint>;
-    addStudentWork(title: string, student: string, year: string, tags: Array<string>): Promise<bigint>;
+    addStudentWork(studentName: string, description: string, photoData: string, pdfData: string): Promise<bigint>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     deleteArtItem(id: bigint): Promise<boolean>;
     deleteDesignPortfolio(id: bigint): Promise<boolean>;
@@ -71,6 +73,7 @@ export interface backendInterface {
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
     getCvLink(): Promise<string>;
+    getCvPdf(): Promise<string>;
     getProfessionalNarrative(): Promise<string>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     healthCheck(): Promise<boolean>;
@@ -88,6 +91,7 @@ export interface backendInterface {
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     setArtItemLive(id: bigint, isLive: boolean): Promise<boolean>;
     setCvLink(link: string): Promise<void>;
+    setCvPdf(data: string): Promise<void>;
     setDesignPortfolioLive(id: bigint, isLive: boolean): Promise<boolean>;
     setLectureLive(id: bigint, isLive: boolean): Promise<boolean>;
     setProfessionalNarrative(narrative: string): Promise<void>;

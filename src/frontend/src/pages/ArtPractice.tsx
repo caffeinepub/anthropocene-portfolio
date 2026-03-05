@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
+import galleryAudio from "../../public/assets/oceanframemusic-romantic-video-483626.mp3";
 import type { ArtPortfolioItem } from "../backend.d";
 import { AnthropoceneAnchor } from "../components/AnthropoceneAnchor";
 import { useCursor } from "../context/CursorContext";
@@ -550,7 +551,7 @@ export function ArtPractice() {
       {/* biome-ignore lint/a11y/useMediaCaption: ambient instrumental music, no dialogue */}
       <audio
         ref={audioRef}
-        src="/assets/oceanframemusic-romantic-video-483626.mp3"
+        src={galleryAudio}
         loop
         preload="auto"
         style={{ display: "none" }}

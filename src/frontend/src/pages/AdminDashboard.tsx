@@ -1,6 +1,7 @@
 import { useNavigate } from "@tanstack/react-router";
 import {
   BookOpen,
+  FileIcon,
   FrameIcon,
   GalleryHorizontalEnd,
   GalleryVerticalEnd,
@@ -156,8 +157,23 @@ function AddLectureModal({
   const [protoUrl, setProtoUrl] = useState("");
   const [desc, setDesc] = useState("");
   const [duration, setDuration] = useState("");
+  const [pdfBase64, setPdfBase64] = useState("");
+  const [pdfFileName, setPdfFileName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+
+  const handlePdfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPdfFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const result = ev.target?.result;
+      if (typeof result === "string") setPdfBase64(result);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSubmit = async () => {
     if (!title.trim()) {
@@ -176,6 +192,7 @@ function AddLectureModal({
         protoUrl.trim(),
         desc.trim(),
         duration.trim(),
+        pdfBase64,
       );
       onSuccess();
       onClose();
@@ -207,6 +224,65 @@ function AddLectureModal({
           onChange={setDuration}
           placeholder="40 min · Live session"
         />
+
+        {/* PDF uploader — optional */}
+        <div>
+          <span style={labelStyle}>PDF Attachment (optional)</span>
+          <input
+            ref={pdfInputRef}
+            type="file"
+            accept="application/pdf"
+            data-ocid="admin.lecture.upload_button"
+            onChange={handlePdfChange}
+            style={{ display: "none" }}
+          />
+          <button
+            type="button"
+            onClick={() => pdfInputRef.current?.click()}
+            style={{
+              width: "100%",
+              background: "#111111",
+              border: "1px solid rgba(229,224,216,0.15)",
+              borderRadius: "0",
+              padding: "0.75rem 1rem",
+              fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+              fontSize: "12px",
+              color: pdfFileName ? "#E5E0D8" : "rgba(229,224,216,0.35)",
+              outline: "none",
+              cursor: "default",
+              textAlign: "left",
+              transition: "border-color 0.2s ease",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              boxSizing: "border-box",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.borderColor =
+                "rgba(229,224,216,0.45)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.borderColor =
+                "rgba(229,224,216,0.15)";
+            }}
+          >
+            <FileIcon
+              size={13}
+              strokeWidth={1.5}
+              style={{ flexShrink: 0, color: "rgba(229,224,216,0.4)" }}
+            />
+            <span
+              style={{
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {pdfFileName || "Choose PDF..."}
+            </span>
+          </button>
+        </div>
+
         {error && <ErrorText>{error}</ErrorText>}
         <SubmitButton onClick={handleSubmit} isSubmitting={isSubmitting} />
       </div>
@@ -225,16 +301,49 @@ function AddStudentWorkModal({
   onSuccess: () => void;
   actor: import("../backend.d").backendInterface | null;
 }) {
-  const [title, setTitle] = useState("");
-  const [student, setStudent] = useState("");
-  const [year, setYear] = useState("");
-  const [tags, setTags] = useState("");
+  const [studentName, setStudentName] = useState("");
+  const [description, setDescription] = useState("");
+  const [photoDataUrl, setPhotoDataUrl] = useState<string>("");
+  const [photoFileName, setPhotoFileName] = useState<string>("");
+  const [pdfBase64, setPdfBase64] = useState("");
+  const [pdfFileName, setPdfFileName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > MAX_FILE_SIZE) {
+      setError("Photo is too large (max 2 MB). Please compress it first.");
+      return;
+    }
+    setError(null);
+    setPhotoFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const result = ev.target?.result;
+      if (typeof result === "string") setPhotoDataUrl(result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handlePdfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPdfFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const result = ev.target?.result;
+      if (typeof result === "string") setPdfBase64(result);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSubmit = async () => {
-    if (!title.trim()) {
-      setError("Title is required.");
+    if (!studentName.trim()) {
+      setError("Student name is required.");
       return;
     }
     if (!actor) {
@@ -244,15 +353,11 @@ function AddStudentWorkModal({
     setIsSubmitting(true);
     setError(null);
     try {
-      const tagsArray = tags
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean);
       await actor.addStudentWork(
-        title.trim(),
-        student.trim(),
-        year.trim(),
-        tagsArray,
+        studentName.trim(),
+        description.trim(),
+        photoDataUrl,
+        pdfBase64,
       );
       onSuccess();
       onClose();
@@ -270,20 +375,177 @@ function AddStudentWorkModal({
   return (
     <ModalShell title="Add Student Work" onClose={onClose}>
       <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-        <FormField label="Title" value={title} onChange={setTitle} />
-        <FormField label="Student Name" value={student} onChange={setStudent} />
         <FormField
-          label="Year"
-          value={year}
-          onChange={setYear}
-          placeholder="2024"
+          label="Student Name"
+          value={studentName}
+          onChange={setStudentName}
+          placeholder="e.g. Aisha Sharma"
         />
-        <FormField
-          label="Tags (comma-separated)"
-          value={tags}
-          onChange={setTags}
-          placeholder="Interaction, Spatial"
+        <FormTextarea
+          label="Description"
+          value={description}
+          onChange={setDescription}
+          placeholder="Brief description of the student's work..."
         />
+
+        {/* ── Photo upload ── */}
+        <div>
+          <span style={labelStyle}>Student Photo (PNG / JPG)</span>
+          <input
+            ref={photoInputRef}
+            type="file"
+            accept="image/*"
+            data-ocid="admin.student.photo.upload_button"
+            onChange={handlePhotoChange}
+            style={{ display: "none" }}
+          />
+          <button
+            type="button"
+            onClick={() => photoInputRef.current?.click()}
+            style={{
+              width: "100%",
+              background: "#111111",
+              border: "1px solid rgba(229,224,216,0.15)",
+              borderRadius: "0",
+              padding: "0.75rem 1rem",
+              fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+              fontSize: "12px",
+              color: photoFileName ? "#E5E0D8" : "rgba(229,224,216,0.35)",
+              outline: "none",
+              cursor: "default",
+              textAlign: "left",
+              transition: "border-color 0.2s ease",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              boxSizing: "border-box",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.borderColor =
+                "rgba(229,224,216,0.45)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.borderColor =
+                "rgba(229,224,216,0.15)";
+            }}
+          >
+            <ImageIcon
+              size={13}
+              strokeWidth={1.5}
+              style={{ flexShrink: 0, color: "rgba(229,224,216,0.4)" }}
+            />
+            <span
+              style={{
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {photoFileName || "Choose photo..."}
+            </span>
+          </button>
+          {/* Photo thumbnail preview */}
+          {photoDataUrl && (
+            <motion.div
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25 }}
+              style={{
+                marginTop: "0.5rem",
+                border: "1px solid rgba(229,224,216,0.1)",
+                padding: "0.4rem 0.5rem",
+                background: "#111111",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.6rem",
+              }}
+            >
+              <img
+                src={photoDataUrl}
+                alt="Preview"
+                style={{
+                  height: "60px",
+                  width: "auto",
+                  maxWidth: "80px",
+                  objectFit: "cover",
+                  display: "block",
+                  flexShrink: 0,
+                }}
+              />
+              <span
+                style={{
+                  fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                  fontSize: "8px",
+                  color: "rgba(229,224,216,0.45)",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {photoFileName}
+              </span>
+            </motion.div>
+          )}
+        </div>
+
+        {/* ── PDF upload (prototype / work PDF) ── */}
+        <div>
+          <span style={labelStyle}>Prototype / Work PDF (optional)</span>
+          <input
+            ref={pdfInputRef}
+            type="file"
+            accept="application/pdf"
+            data-ocid="admin.student.pdf.upload_button"
+            onChange={handlePdfChange}
+            style={{ display: "none" }}
+          />
+          <button
+            type="button"
+            onClick={() => pdfInputRef.current?.click()}
+            style={{
+              width: "100%",
+              background: "#111111",
+              border: "1px solid rgba(229,224,216,0.15)",
+              borderRadius: "0",
+              padding: "0.75rem 1rem",
+              fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+              fontSize: "12px",
+              color: pdfFileName ? "#E5E0D8" : "rgba(229,224,216,0.35)",
+              outline: "none",
+              cursor: "default",
+              textAlign: "left",
+              transition: "border-color 0.2s ease",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              boxSizing: "border-box",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.borderColor =
+                "rgba(229,224,216,0.45)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.borderColor =
+                "rgba(229,224,216,0.15)";
+            }}
+          >
+            <FileIcon
+              size={13}
+              strokeWidth={1.5}
+              style={{ flexShrink: 0, color: "rgba(229,224,216,0.4)" }}
+            />
+            <span
+              style={{
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {pdfFileName || "Choose PDF..."}
+            </span>
+          </button>
+        </div>
+
         {error && <ErrorText>{error}</ErrorText>}
         <SubmitButton onClick={handleSubmit} isSubmitting={isSubmitting} />
       </div>
@@ -516,9 +778,12 @@ function AddDesignPortfolioModal({
   const [imageDataUrl, setImageDataUrl] = useState<string>("");
   const [imageFileName, setImageFileName] = useState<string>("");
   const [videoUrl, setVideoUrl] = useState("");
+  const [pdfBase64, setPdfBase64] = useState("");
+  const [pdfFileName, setPdfFileName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -533,6 +798,18 @@ function AddDesignPortfolioModal({
     reader.onload = (ev) => {
       const result = ev.target?.result;
       if (typeof result === "string") setImageDataUrl(result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handlePdfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPdfFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const result = ev.target?.result;
+      if (typeof result === "string") setPdfBase64(result);
     };
     reader.readAsDataURL(file);
   };
@@ -562,6 +839,7 @@ function AddDesignPortfolioModal({
         imageDataUrl,
         videoUrl.trim(),
         description.trim(),
+        pdfBase64,
       );
       onSuccess();
       onClose();
@@ -736,6 +1014,64 @@ function AddDesignPortfolioModal({
           onChange={setVideoUrl}
           placeholder="https://example.com/video.mp4"
         />
+
+        {/* ── PDF attachment — optional ── */}
+        <div>
+          <span style={labelStyle}>PDF Attachment (optional)</span>
+          <input
+            ref={pdfInputRef}
+            type="file"
+            accept="application/pdf"
+            data-ocid="admin.design.pdf.upload_button"
+            onChange={handlePdfChange}
+            style={{ display: "none" }}
+          />
+          <button
+            type="button"
+            onClick={() => pdfInputRef.current?.click()}
+            style={{
+              width: "100%",
+              background: "#111111",
+              border: "1px solid rgba(229,224,216,0.15)",
+              borderRadius: "0",
+              padding: "0.75rem 1rem",
+              fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+              fontSize: "12px",
+              color: pdfFileName ? "#E5E0D8" : "rgba(229,224,216,0.35)",
+              outline: "none",
+              cursor: "default",
+              textAlign: "left",
+              transition: "border-color 0.2s ease",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              boxSizing: "border-box",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.borderColor =
+                "rgba(229,224,216,0.45)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.borderColor =
+                "rgba(229,224,216,0.15)";
+            }}
+          >
+            <FileIcon
+              size={13}
+              strokeWidth={1.5}
+              style={{ flexShrink: 0, color: "rgba(229,224,216,0.4)" }}
+            />
+            <span
+              style={{
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {pdfFileName || "Choose PDF..."}
+            </span>
+          </button>
+        </div>
 
         {error && <ErrorText>{error}</ErrorText>}
         <SubmitButton onClick={handleSubmit} isSubmitting={isSubmitting} />
@@ -1500,12 +1836,19 @@ function EntryRow({
 export function AdminDashboard() {
   const navigate = useNavigate();
   const { isAuthenticated, logout } = useAdminAuth();
-  const { identity } = useInternetIdentity();
+  const {
+    identity,
+    login: iiLogin,
+    isLoggingIn: isIILoggingIn,
+  } = useInternetIdentity();
   const { actor, isFetching: isActorFetching } = useActor();
   const [activeSection, setActiveSection] = useState<NavSection>("lectures");
   const [isHoveringAdd, setIsHoveringAdd] = useState(false);
   const [isHoveringLogout, setIsHoveringLogout] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+
+  // Track whether the user needs to connect Internet Identity to enable uploads
+  const [needsIdentity, setNeedsIdentity] = useState(false);
 
   // Data state per section
   const [lectures, setLectures] = useState<LectureItem[]>([]);
@@ -1522,12 +1865,31 @@ export function AdminDashboard() {
   const [cvLinkSaved, setCvLinkSaved] = useState(false);
   const [cvLinkError, setCvLinkError] = useState<string | null>(null);
 
-  // Route protection — require local session AND internet identity
+  // CV PDF state (design-portfolio section)
+  const [cvPdfBase64, setCvPdfBase64] = useState("");
+  const [cvPdfFileName, setCvPdfFileName] = useState("");
+  const [cvPdfAlreadySet, setCvPdfAlreadySet] = useState(false);
+  const [cvPdfSaving, setCvPdfSaving] = useState(false);
+  const [cvPdfSaved, setCvPdfSaved] = useState(false);
+  const [cvPdfError, setCvPdfError] = useState<string | null>(null);
+  const cvPdfInputRef = useRef<HTMLInputElement>(null);
+
+  // Route protection — require local password session
   useEffect(() => {
     if (!isAuthenticated) {
       navigate({ to: "/admin" });
     }
   }, [isAuthenticated, navigate]);
+
+  // Show banner when actor is ready but no II identity is present
+  useEffect(() => {
+    if (isAuthenticated && !isActorFetching && !identity) {
+      setNeedsIdentity(true);
+    }
+    if (identity) {
+      setNeedsIdentity(false);
+    }
+  }, [isAuthenticated, isActorFetching, identity]);
 
   const loadSection = useCallback(
     async (section: NavSection) => {
@@ -1545,12 +1907,14 @@ export function AdminDashboard() {
           const data = await actor.listAllArtItems();
           setArtItems(data);
         } else if (section === "design-portfolio") {
-          const [data, link] = await Promise.all([
+          const [data, link, pdf] = await Promise.all([
             actor.listAllDesignPortfolio(),
             actor.getCvLink(),
+            actor.getCvPdf(),
           ]);
           setDesignItems(data);
           setCvLinkInput(link?.trim() ?? "");
+          setCvPdfAlreadySet(!!pdf?.trim());
         } else if (section === "research") {
           const data = await actor.listAllResearchItems();
           setResearchItems(data);
@@ -1675,6 +2039,30 @@ export function AdminDashboard() {
     }
   };
 
+  const handleSaveCvPdf = async () => {
+    if (!actor) {
+      setCvPdfError("Actor not ready. Please wait or re-authenticate.");
+      return;
+    }
+    if (!cvPdfBase64) {
+      setCvPdfError("Please select a PDF file first.");
+      return;
+    }
+    setCvPdfSaving(true);
+    setCvPdfError(null);
+    setCvPdfSaved(false);
+    try {
+      await actor.setCvPdf(cvPdfBase64);
+      setCvPdfSaved(true);
+      setCvPdfAlreadySet(true);
+      setTimeout(() => setCvPdfSaved(false), 2000);
+    } catch (e) {
+      setCvPdfError(e instanceof Error ? e.message : "Failed to save CV PDF.");
+    } finally {
+      setCvPdfSaving(false);
+    }
+  };
+
   // ── Compute rows ──────────────────────────────────────────────────────────
 
   const currentMeta = SECTION_META[activeSection];
@@ -1693,7 +2081,7 @@ export function AdminDashboard() {
     if (activeSection === "students-works") {
       return studentWorks.map((w) => ({
         id: w.id,
-        title: w.title,
+        title: w.studentName,
         isLive: w.isLive,
         type: "Work",
         onToggleLive: handleToggleStudentWork,
@@ -2029,6 +2417,97 @@ export function AdminDashboard() {
           </button>
         </div>
 
+        {/* Internet Identity banner — shown when no II session is present */}
+        <AnimatePresence>
+          {needsIdentity && (
+            <motion.div
+              data-ocid="admin.identity.banner"
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+              style={{
+                backgroundColor: "#1a1a1a",
+                borderBottom: "1px solid rgba(140,58,58,0.25)",
+                padding: "0.875rem 3rem",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "1rem",
+                flexWrap: "wrap",
+                flexShrink: 0,
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.75rem",
+                }}
+              >
+                <span
+                  style={{
+                    width: "6px",
+                    height: "6px",
+                    borderRadius: "50%",
+                    background: "#8C3A3A",
+                    flexShrink: 0,
+                    display: "inline-block",
+                  }}
+                />
+                <p
+                  style={{
+                    fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                    fontSize: "10px",
+                    letterSpacing: "0.08em",
+                    color: "#E5E0D8",
+                    margin: 0,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  Connect your Internet Identity to enable uploads
+                </p>
+              </div>
+              <button
+                type="button"
+                data-ocid="admin.identity.connect_button"
+                onClick={() => iiLogin()}
+                disabled={isIILoggingIn}
+                style={{
+                  background: isIILoggingIn ? "rgba(140,58,58,0.5)" : "#8C3A3A",
+                  border: "none",
+                  borderRadius: "0",
+                  padding: "0.5rem 1.25rem",
+                  fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                  fontSize: "9px",
+                  letterSpacing: "0.25em",
+                  textTransform: "uppercase",
+                  color: "#E5E0D8",
+                  cursor: "default",
+                  transition: "background 0.2s ease",
+                  flexShrink: 0,
+                  whiteSpace: "nowrap",
+                  opacity: isIILoggingIn ? 0.7 : 1,
+                }}
+                onMouseEnter={(e) => {
+                  if (!isIILoggingIn) {
+                    (e.currentTarget as HTMLButtonElement).style.background =
+                      "#a84444";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isIILoggingIn) {
+                    (e.currentTarget as HTMLButtonElement).style.background =
+                      "#8C3A3A";
+                  }
+                }}
+              >
+                {isIILoggingIn ? "Opening..." : "Connect Identity"}
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Content area */}
         <div
           style={{
@@ -2089,105 +2568,289 @@ export function AdminDashboard() {
               {currentMeta.description}
             </p>
 
-            {/* CV Link settings — design-portfolio only */}
+            {/* CV Settings — design-portfolio only */}
             {activeSection === "design-portfolio" && (
               <div
                 style={{
                   paddingBottom: "2rem",
                   marginBottom: "2rem",
                   borderBottom: "1px solid rgba(229,224,216,0.06)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "1.5rem",
                 }}
               >
-                <span style={labelStyle}>CV Link / File URL</span>
-                <div
+                <p
                   style={{
-                    display: "flex",
-                    gap: "0.75rem",
-                    alignItems: "flex-start",
-                    flexWrap: "wrap",
+                    fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                    fontSize: "9px",
+                    letterSpacing: "0.3em",
+                    textTransform: "uppercase",
+                    color: "rgba(229,224,216,0.45)",
+                    margin: 0,
                   }}
                 >
-                  <input
-                    type="text"
-                    data-ocid="admin.cv.input"
-                    value={cvLinkInput}
-                    onChange={(e) => setCvLinkInput(e.target.value)}
-                    placeholder="https://figma.site/... or https://..."
-                    style={{ ...inputStyle, flex: "1 1 300px" }}
-                    onFocus={(e) => {
-                      e.currentTarget.style.borderColor =
-                        "rgba(229,224,216,0.45)";
-                    }}
-                    onBlur={(e) => {
-                      e.currentTarget.style.borderColor =
-                        "rgba(229,224,216,0.15)";
-                    }}
-                  />
-                  <button
-                    type="button"
-                    data-ocid="admin.cv.save_button"
-                    onClick={handleSaveCvLink}
-                    disabled={cvLinkSaving}
+                  CV Settings
+                </p>
+
+                {/* CV Link / URL subsection */}
+                <div>
+                  <span style={labelStyle}>CV Link / File URL</span>
+                  <div
                     style={{
-                      background: "#8C3A3A",
-                      border: "none",
-                      borderRadius: "0",
-                      padding: "0.75rem 1.25rem",
-                      fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
-                      fontSize: "9px",
-                      letterSpacing: "0.25em",
-                      textTransform: "uppercase",
-                      color: "#E5E0D8",
-                      cursor: "default",
-                      transition: "background 0.2s ease",
-                      opacity: cvLinkSaving ? 0.6 : 1,
-                      flexShrink: 0,
-                      whiteSpace: "nowrap",
+                      display: "flex",
+                      gap: "0.75rem",
+                      alignItems: "flex-start",
+                      flexWrap: "wrap",
                     }}
-                    onMouseEnter={(e) => {
-                      if (!cvLinkSaving) {
+                  >
+                    <input
+                      type="text"
+                      data-ocid="admin.cv.input"
+                      value={cvLinkInput}
+                      onChange={(e) => setCvLinkInput(e.target.value)}
+                      placeholder="https://figma.site/... or https://..."
+                      style={{ ...inputStyle, flex: "1 1 300px" }}
+                      onFocus={(e) => {
+                        e.currentTarget.style.borderColor =
+                          "rgba(229,224,216,0.45)";
+                      }}
+                      onBlur={(e) => {
+                        e.currentTarget.style.borderColor =
+                          "rgba(229,224,216,0.15)";
+                      }}
+                    />
+                    <button
+                      type="button"
+                      data-ocid="admin.cv.save_button"
+                      onClick={handleSaveCvLink}
+                      disabled={cvLinkSaving}
+                      style={{
+                        background: "#8C3A3A",
+                        border: "none",
+                        borderRadius: "0",
+                        padding: "0.75rem 1.25rem",
+                        fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                        fontSize: "9px",
+                        letterSpacing: "0.25em",
+                        textTransform: "uppercase",
+                        color: "#E5E0D8",
+                        cursor: "default",
+                        transition: "background 0.2s ease",
+                        opacity: cvLinkSaving ? 0.6 : 1,
+                        flexShrink: 0,
+                        whiteSpace: "nowrap",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!cvLinkSaving) {
+                          (
+                            e.currentTarget as HTMLButtonElement
+                          ).style.background = "#a84444";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
                         (
                           e.currentTarget as HTMLButtonElement
-                        ).style.background = "#a84444";
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.background =
-                        "#8C3A3A";
-                    }}
-                  >
-                    {cvLinkSaving ? "Saving..." : "Save CV Link"}
-                  </button>
+                        ).style.background = "#8C3A3A";
+                      }}
+                    >
+                      {cvLinkSaving ? "Saving..." : "Save CV Link"}
+                    </button>
+                  </div>
+                  {cvLinkSaved && (
+                    <p
+                      data-ocid="admin.cv.success_state"
+                      style={{
+                        fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                        fontSize: "9px",
+                        letterSpacing: "0.12em",
+                        color: "#4CAF50",
+                        margin: "0.6rem 0 0",
+                      }}
+                    >
+                      Saved.
+                    </p>
+                  )}
+                  {cvLinkError && (
+                    <p
+                      data-ocid="admin.cv.error_state"
+                      style={{
+                        fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                        fontSize: "9px",
+                        letterSpacing: "0.06em",
+                        color: "#8C3A3A",
+                        margin: "0.6rem 0 0",
+                        lineHeight: 1.6,
+                      }}
+                    >
+                      ⚠ {cvLinkError}
+                    </p>
+                  )}
                 </div>
-                {cvLinkSaved && (
-                  <p
-                    data-ocid="admin.cv.success_state"
+
+                {/* CV PDF Upload subsection */}
+                <div>
+                  <span style={labelStyle}>CV PDF Upload</span>
+                  {cvPdfAlreadySet && (
+                    <p
+                      style={{
+                        fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                        fontSize: "9px",
+                        letterSpacing: "0.1em",
+                        color: "#4CAF50",
+                        margin: "0 0 0.75rem",
+                      }}
+                    >
+                      ✓ PDF already uploaded — uploading a new one will replace
+                      it.
+                    </p>
+                  )}
+                  <div
                     style={{
-                      fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
-                      fontSize: "9px",
-                      letterSpacing: "0.12em",
-                      color: "#4CAF50",
-                      margin: "0.6rem 0 0",
+                      display: "flex",
+                      gap: "0.75rem",
+                      alignItems: "flex-start",
+                      flexWrap: "wrap",
                     }}
                   >
-                    Saved.
-                  </p>
-                )}
-                {cvLinkError && (
-                  <p
-                    data-ocid="admin.cv.error_state"
-                    style={{
-                      fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
-                      fontSize: "9px",
-                      letterSpacing: "0.06em",
-                      color: "#8C3A3A",
-                      margin: "0.6rem 0 0",
-                      lineHeight: 1.6,
-                    }}
-                  >
-                    ⚠ {cvLinkError}
-                  </p>
-                )}
+                    <input
+                      ref={cvPdfInputRef}
+                      type="file"
+                      accept="application/pdf"
+                      data-ocid="admin.cv.upload_button"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        setCvPdfFileName(file.name);
+                        const reader = new FileReader();
+                        reader.onload = (ev) => {
+                          const result = ev.target?.result;
+                          if (typeof result === "string")
+                            setCvPdfBase64(result);
+                        };
+                        reader.readAsDataURL(file);
+                      }}
+                      style={{ display: "none" }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => cvPdfInputRef.current?.click()}
+                      style={{
+                        flex: "1 1 200px",
+                        background: "#111111",
+                        border: "1px solid rgba(229,224,216,0.15)",
+                        borderRadius: "0",
+                        padding: "0.75rem 1rem",
+                        fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                        fontSize: "12px",
+                        color: cvPdfFileName
+                          ? "#E5E0D8"
+                          : "rgba(229,224,216,0.35)",
+                        outline: "none",
+                        cursor: "default",
+                        textAlign: "left",
+                        transition: "border-color 0.2s ease",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.5rem",
+                        boxSizing: "border-box",
+                      }}
+                      onMouseEnter={(e) => {
+                        (
+                          e.currentTarget as HTMLButtonElement
+                        ).style.borderColor = "rgba(229,224,216,0.45)";
+                      }}
+                      onMouseLeave={(e) => {
+                        (
+                          e.currentTarget as HTMLButtonElement
+                        ).style.borderColor = "rgba(229,224,216,0.15)";
+                      }}
+                    >
+                      <FileIcon
+                        size={13}
+                        strokeWidth={1.5}
+                        style={{
+                          flexShrink: 0,
+                          color: "rgba(229,224,216,0.4)",
+                        }}
+                      />
+                      <span
+                        style={{
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {cvPdfFileName || "Choose PDF..."}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      data-ocid="admin.cv.pdf.save_button"
+                      onClick={handleSaveCvPdf}
+                      disabled={cvPdfSaving || !cvPdfBase64}
+                      style={{
+                        background: "#8C3A3A",
+                        border: "none",
+                        borderRadius: "0",
+                        padding: "0.75rem 1.25rem",
+                        fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                        fontSize: "9px",
+                        letterSpacing: "0.25em",
+                        textTransform: "uppercase",
+                        color: "#E5E0D8",
+                        cursor: "default",
+                        transition: "background 0.2s ease",
+                        opacity: cvPdfSaving || !cvPdfBase64 ? 0.5 : 1,
+                        flexShrink: 0,
+                        whiteSpace: "nowrap",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!cvPdfSaving && cvPdfBase64) {
+                          (
+                            e.currentTarget as HTMLButtonElement
+                          ).style.background = "#a84444";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        (
+                          e.currentTarget as HTMLButtonElement
+                        ).style.background = "#8C3A3A";
+                      }}
+                    >
+                      {cvPdfSaving ? "Saving..." : "Save CV PDF"}
+                    </button>
+                  </div>
+                  {cvPdfSaved && (
+                    <p
+                      data-ocid="admin.cv.pdf.success_state"
+                      style={{
+                        fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                        fontSize: "9px",
+                        letterSpacing: "0.12em",
+                        color: "#4CAF50",
+                        margin: "0.6rem 0 0",
+                      }}
+                    >
+                      PDF saved.
+                    </p>
+                  )}
+                  {cvPdfError && (
+                    <p
+                      data-ocid="admin.cv.pdf.error_state"
+                      style={{
+                        fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                        fontSize: "9px",
+                        letterSpacing: "0.06em",
+                        color: "#8C3A3A",
+                        margin: "0.6rem 0 0",
+                        lineHeight: 1.6,
+                      }}
+                    >
+                      ⚠ {cvPdfError}
+                    </p>
+                  )}
+                </div>
               </div>
             )}
 
