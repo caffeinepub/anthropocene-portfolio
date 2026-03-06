@@ -221,6 +221,15 @@ interface GalleryItemProps {
 
 function GalleryItem({ item, index }: GalleryItemProps) {
   const isEven = index % 2 === 0;
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth < 768 : false,
+  );
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   return (
     <section
@@ -229,26 +238,53 @@ function GalleryItem({ item, index }: GalleryItemProps) {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        padding: "4rem 0",
+        padding: isMobile ? "2.5rem 0" : "4rem 0",
         background: "#000000",
       }}
     >
       <div
         style={{
           display: "flex",
-          flexDirection: isEven ? "row" : "row-reverse",
-          alignItems: "center",
+          flexDirection: isMobile ? "column" : isEven ? "row" : "row-reverse",
+          alignItems: isMobile ? "flex-start" : "center",
           gap: "2rem",
           width: "90vw",
           maxWidth: "1400px",
         }}
       >
-        {/* Title Panel — 25% */}
+        {/* Image Container — full width on mobile, flex-1 on desktop */}
+        <motion.div
+          style={{
+            flex: "1 1 auto",
+            maxWidth: isMobile ? "100%" : "75vw",
+            position: "relative",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+          whileHover={{ scale: 1.015 }}
+          transition={{ duration: 1.5, ease: [0.4, 0, 0.2, 1] }}
+        >
+          <img
+            src={item.imagePath}
+            alt={item.title}
+            style={{
+              display: "block",
+              maxWidth: "100%",
+              maxHeight: isMobile ? "70vh" : "90vh",
+              width: "auto",
+              height: "auto",
+              objectFit: "contain",
+            }}
+          />
+        </motion.div>
+
+        {/* Title Panel — below image on mobile, side panel on desktop */}
         <div
           style={{
-            width: "25%",
+            width: isMobile ? "100%" : "25%",
             flexShrink: 0,
-            textAlign: isEven ? "right" : "left",
+            textAlign: "left",
           }}
         >
           <span
@@ -287,33 +323,6 @@ function GalleryItem({ item, index }: GalleryItemProps) {
             }}
           />
         </div>
-
-        {/* Image Container — max 75vw, full height preserved, capped at 90vh */}
-        <motion.div
-          style={{
-            flex: "1 1 auto",
-            maxWidth: "75vw",
-            position: "relative",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-          whileHover={{ scale: 1.015 }}
-          transition={{ duration: 1.5, ease: [0.4, 0, 0.2, 1] }}
-        >
-          <img
-            src={item.imagePath}
-            alt={item.title}
-            style={{
-              display: "block",
-              maxWidth: "100%",
-              maxHeight: "90vh",
-              width: "auto",
-              height: "auto",
-              objectFit: "contain",
-            }}
-          />
-        </motion.div>
       </div>
     </section>
   );
@@ -444,6 +453,15 @@ export function ArtPractice() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const hasStartedRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [isNavMobile, setIsNavMobile] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth < 640 : false,
+  );
+
+  useEffect(() => {
+    const check = () => setIsNavMobile(window.innerWidth < 640);
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   // Suppress default cursor label on this page
   useEffect(() => {
@@ -571,13 +589,13 @@ export function ArtPractice() {
           <AnthropoceneAnchor />
         </div>
 
-        {/* Top-right: Nav links */}
+        {/* Top-right: Nav links — hidden on small mobile to prevent overflow */}
         <div
           style={{
             position: "fixed",
             top: "2rem",
             right: "2rem",
-            display: "flex",
+            display: isNavMobile ? "none" : "flex",
             gap: "2rem",
             alignItems: "center",
             pointerEvents: "auto",

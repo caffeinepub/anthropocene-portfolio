@@ -7,8 +7,10 @@ import {
   GalleryVerticalEnd,
   ImageIcon,
   Layers,
+  Loader2,
   LogOut,
   Plus,
+  RefreshCw,
   X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -142,16 +144,127 @@ const labelStyle: React.CSSProperties = {
   cursor: "default",
 };
 
+// ─── Actor not ready banner ────────────────────────────────────────────────────
+
+function ActorNotReadyBanner({
+  onRetry,
+  isActorFetching,
+}: {
+  onRetry: () => void;
+  isActorFetching: boolean;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -4 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -4 }}
+      transition={{ duration: 0.25 }}
+      style={{
+        background: "rgba(229,224,216,0.04)",
+        border: "1px solid rgba(229,224,216,0.1)",
+        borderRadius: "0",
+        padding: "0.75rem 1rem",
+        display: "flex",
+        alignItems: "center",
+        gap: "0.75rem",
+        flexWrap: "wrap",
+      }}
+    >
+      {isActorFetching ? (
+        <Loader2
+          size={11}
+          strokeWidth={1.5}
+          style={{
+            color: "rgba(229,224,216,0.4)",
+            flexShrink: 0,
+            animation: "spin 1s linear infinite",
+          }}
+        />
+      ) : (
+        <span
+          style={{
+            width: "6px",
+            height: "6px",
+            borderRadius: "50%",
+            background: "rgba(229,224,216,0.3)",
+            flexShrink: 0,
+            display: "inline-block",
+          }}
+        />
+      )}
+      <p
+        style={{
+          fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+          fontSize: "10px",
+          letterSpacing: "0.06em",
+          color: "rgba(229,224,216,0.55)",
+          margin: 0,
+          flex: 1,
+          lineHeight: 1.5,
+        }}
+      >
+        {isActorFetching
+          ? "Setting up secure connection... please try again in a moment."
+          : "Connection not ready — tap Retry to reconnect."}
+      </p>
+      <button
+        type="button"
+        onClick={onRetry}
+        disabled={isActorFetching}
+        style={{
+          background: "none",
+          border: "1px solid rgba(229,224,216,0.2)",
+          borderRadius: "0",
+          padding: "0.35rem 0.75rem",
+          fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+          fontSize: "8px",
+          letterSpacing: "0.2em",
+          textTransform: "uppercase",
+          color: "rgba(229,224,216,0.6)",
+          cursor: "default",
+          display: "flex",
+          alignItems: "center",
+          gap: "0.4rem",
+          opacity: isActorFetching ? 0.5 : 1,
+          transition: "border-color 0.2s, color 0.2s",
+          flexShrink: 0,
+        }}
+        onMouseEnter={(e) => {
+          if (!isActorFetching) {
+            const el = e.currentTarget as HTMLButtonElement;
+            el.style.borderColor = "rgba(229,224,216,0.45)";
+            el.style.color = "#E5E0D8";
+          }
+        }}
+        onMouseLeave={(e) => {
+          const el = e.currentTarget as HTMLButtonElement;
+          el.style.borderColor = "rgba(229,224,216,0.2)";
+          el.style.color = "rgba(229,224,216,0.6)";
+        }}
+      >
+        <RefreshCw size={9} strokeWidth={1.5} />
+        Retry
+      </button>
+    </motion.div>
+  );
+}
+
 // ─── Modal: Add Lecture ────────────────────────────────────────────────────────
 
 function AddLectureModal({
   onClose,
   onSuccess,
   actor,
+  isActorReady,
+  isActorFetching,
+  onRetryActor,
 }: {
   onClose: () => void;
   onSuccess: () => void;
   actor: import("../backend.d").backendInterface | null;
+  isActorReady: boolean;
+  isActorFetching: boolean;
+  onRetryActor: () => void;
 }) {
   const [title, setTitle] = useState("");
   const [protoUrl, setProtoUrl] = useState("");
@@ -180,8 +293,8 @@ function AddLectureModal({
       setError("Title is required.");
       return;
     }
-    if (!actor) {
-      setError("Actor not ready. Please wait or re-authenticate.");
+    if (!actor || !isActorReady) {
+      // Not an error — transient state, show banner instead
       return;
     }
     setIsSubmitting(true);
@@ -210,6 +323,16 @@ function AddLectureModal({
   return (
     <ModalShell title="Add Lecture" onClose={onClose}>
       <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+        {/* Actor not ready banner */}
+        <AnimatePresence>
+          {(!actor || !isActorReady) && (
+            <ActorNotReadyBanner
+              onRetry={onRetryActor}
+              isActorFetching={isActorFetching}
+            />
+          )}
+        </AnimatePresence>
+
         <FormField label="Title" value={title} onChange={setTitle} />
         <FormField
           label="Prototype URL"
@@ -284,7 +407,11 @@ function AddLectureModal({
         </div>
 
         {error && <ErrorText>{error}</ErrorText>}
-        <SubmitButton onClick={handleSubmit} isSubmitting={isSubmitting} />
+        <SubmitButton
+          onClick={handleSubmit}
+          isSubmitting={isSubmitting}
+          disabled={!actor || !isActorReady}
+        />
       </div>
     </ModalShell>
   );
@@ -296,10 +423,16 @@ function AddStudentWorkModal({
   onClose,
   onSuccess,
   actor,
+  isActorReady,
+  isActorFetching,
+  onRetryActor,
 }: {
   onClose: () => void;
   onSuccess: () => void;
   actor: import("../backend.d").backendInterface | null;
+  isActorReady: boolean;
+  isActorFetching: boolean;
+  onRetryActor: () => void;
 }) {
   const [studentName, setStudentName] = useState("");
   const [description, setDescription] = useState("");
@@ -346,8 +479,8 @@ function AddStudentWorkModal({
       setError("Student name is required.");
       return;
     }
-    if (!actor) {
-      setError("Actor not ready. Please wait or re-authenticate.");
+    if (!actor || !isActorReady) {
+      // Transient state — banner is shown, don't set a permanent error
       return;
     }
     setIsSubmitting(true);
@@ -375,6 +508,16 @@ function AddStudentWorkModal({
   return (
     <ModalShell title="Add Student Work" onClose={onClose}>
       <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+        {/* Actor not ready banner */}
+        <AnimatePresence>
+          {(!actor || !isActorReady) && (
+            <ActorNotReadyBanner
+              onRetry={onRetryActor}
+              isActorFetching={isActorFetching}
+            />
+          )}
+        </AnimatePresence>
+
         <FormField
           label="Student Name"
           value={studentName}
@@ -547,7 +690,11 @@ function AddStudentWorkModal({
         </div>
 
         {error && <ErrorText>{error}</ErrorText>}
-        <SubmitButton onClick={handleSubmit} isSubmitting={isSubmitting} />
+        <SubmitButton
+          onClick={handleSubmit}
+          isSubmitting={isSubmitting}
+          disabled={!actor || !isActorReady}
+        />
       </div>
     </ModalShell>
   );
@@ -561,10 +708,16 @@ function AddArtItemModal({
   onClose,
   onSuccess,
   actor,
+  isActorReady,
+  isActorFetching,
+  onRetryActor,
 }: {
   onClose: () => void;
   onSuccess: () => void;
   actor: import("../backend.d").backendInterface | null;
+  isActorReady: boolean;
+  isActorFetching: boolean;
+  onRetryActor: () => void;
 }) {
   const [title, setTitle] = useState("");
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
@@ -604,8 +757,8 @@ function AddArtItemModal({
       setError("Please select an image.");
       return;
     }
-    if (!actor) {
-      setError("Actor not ready. Please wait or re-authenticate.");
+    if (!actor || !isActorReady) {
+      // Transient state — banner is shown, don't set a permanent error
       return;
     }
     setIsSubmitting(true);
@@ -628,6 +781,16 @@ function AddArtItemModal({
   return (
     <ModalShell title="Add Art Item" onClose={onClose}>
       <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+        {/* Actor not ready banner */}
+        <AnimatePresence>
+          {(!actor || !isActorReady) && (
+            <ActorNotReadyBanner
+              onRetry={onRetryActor}
+              isActorFetching={isActorFetching}
+            />
+          )}
+        </AnimatePresence>
+
         <FormField label="Title" value={title} onChange={setTitle} />
 
         {/* File uploader */}
@@ -751,7 +914,11 @@ function AddArtItemModal({
         )}
 
         {error && <ErrorText>{error}</ErrorText>}
-        <SubmitButton onClick={handleSubmit} isSubmitting={isSubmitting} />
+        <SubmitButton
+          onClick={handleSubmit}
+          isSubmitting={isSubmitting}
+          disabled={!actor || !isActorReady}
+        />
       </div>
     </ModalShell>
   );
@@ -763,10 +930,16 @@ function AddDesignPortfolioModal({
   onClose,
   onSuccess,
   actor,
+  isActorReady,
+  isActorFetching,
+  onRetryActor,
 }: {
   onClose: () => void;
   onSuccess: () => void;
   actor: import("../backend.d").backendInterface | null;
+  isActorReady: boolean;
+  isActorFetching: boolean;
+  onRetryActor: () => void;
 }) {
   const [title, setTitle] = useState("");
   const [client, setClient] = useState("");
@@ -819,8 +992,8 @@ function AddDesignPortfolioModal({
       setError("Title is required.");
       return;
     }
-    if (!actor) {
-      setError("Actor not ready. Please wait or re-authenticate.");
+    if (!actor || !isActorReady) {
+      // Transient state — banner is shown, don't set a permanent error
       return;
     }
     setIsSubmitting(true);
@@ -857,6 +1030,16 @@ function AddDesignPortfolioModal({
   return (
     <ModalShell title="Add Design Portfolio Item" onClose={onClose}>
       <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+        {/* Actor not ready banner */}
+        <AnimatePresence>
+          {(!actor || !isActorReady) && (
+            <ActorNotReadyBanner
+              onRetry={onRetryActor}
+              isActorFetching={isActorFetching}
+            />
+          )}
+        </AnimatePresence>
+
         <FormField label="Title" value={title} onChange={setTitle} />
         <FormField label="Client" value={client} onChange={setClient} />
         <FormField
@@ -1074,7 +1257,11 @@ function AddDesignPortfolioModal({
         </div>
 
         {error && <ErrorText>{error}</ErrorText>}
-        <SubmitButton onClick={handleSubmit} isSubmitting={isSubmitting} />
+        <SubmitButton
+          onClick={handleSubmit}
+          isSubmitting={isSubmitting}
+          disabled={!actor || !isActorReady}
+        />
       </div>
     </ModalShell>
   );
@@ -1086,10 +1273,16 @@ function AddResearchItemModal({
   onClose,
   onSuccess,
   actor,
+  isActorReady,
+  isActorFetching,
+  onRetryActor,
 }: {
   onClose: () => void;
   onSuccess: () => void;
   actor: import("../backend.d").backendInterface | null;
+  isActorReady: boolean;
+  isActorFetching: boolean;
+  onRetryActor: () => void;
 }) {
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
@@ -1130,8 +1323,8 @@ function AddResearchItemModal({
       setError("Please select an image.");
       return;
     }
-    if (!actor) {
-      setError("Actor not ready. Please wait or re-authenticate.");
+    if (!actor || !isActorReady) {
+      // Transient state — banner is shown, don't set a permanent error
       return;
     }
     setIsSubmitting(true);
@@ -1154,6 +1347,16 @@ function AddResearchItemModal({
   return (
     <ModalShell title="Add Research Card" onClose={onClose}>
       <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+        {/* Actor not ready banner */}
+        <AnimatePresence>
+          {(!actor || !isActorReady) && (
+            <ActorNotReadyBanner
+              onRetry={onRetryActor}
+              isActorFetching={isActorFetching}
+            />
+          )}
+        </AnimatePresence>
+
         <FormField label="Title" value={title} onChange={setTitle} />
         <FormTextarea label="Description" value={desc} onChange={setDesc} />
 
@@ -1276,7 +1479,11 @@ function AddResearchItemModal({
         )}
 
         {error && <ErrorText>{error}</ErrorText>}
-        <SubmitButton onClick={handleSubmit} isSubmitting={isSubmitting} />
+        <SubmitButton
+          onClick={handleSubmit}
+          isSubmitting={isSubmitting}
+          disabled={!actor || !isActorReady}
+        />
       </div>
     </ModalShell>
   );
@@ -1492,22 +1699,30 @@ function ErrorText({ children }: { children: React.ReactNode }) {
 function SubmitButton({
   onClick,
   isSubmitting,
+  disabled,
 }: {
   onClick: () => void;
   isSubmitting: boolean;
+  disabled?: boolean;
 }) {
   const [isHovering, setIsHovering] = useState(false);
+  const isDisabled = isSubmitting || !!disabled;
   return (
     <button
       type="button"
       data-ocid="admin.add_entry.submit_button"
       onClick={onClick}
-      disabled={isSubmitting}
+      disabled={isDisabled}
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
       style={{
         width: "100%",
-        background: isHovering && !isSubmitting ? "#a84444" : "#8C3A3A",
+        background:
+          isHovering && !isDisabled
+            ? "#a84444"
+            : disabled
+              ? "rgba(140,58,58,0.3)"
+              : "#8C3A3A",
         border: "none",
         borderRadius: "0",
         padding: "0.875rem 1rem",
@@ -1518,11 +1733,15 @@ function SubmitButton({
         color: "#E5E0D8",
         cursor: "default",
         transition: "background 0.2s ease",
-        opacity: isSubmitting ? 0.6 : 1,
+        opacity: isDisabled ? 0.5 : 1,
         marginTop: "0.25rem",
       }}
     >
-      {isSubmitting ? "Saving..." : "Save Entry"}
+      {isSubmitting
+        ? "Saving..."
+        : disabled
+          ? "Waiting for connection..."
+          : "Save Entry"}
     </button>
   );
 }
@@ -1842,6 +2061,7 @@ export function AdminDashboard() {
     isLoggingIn: isIILoggingIn,
   } = useInternetIdentity();
   const { actor, isFetching: isActorFetching } = useActor();
+  const isActorReady = !!actor && !isActorFetching;
   const [activeSection, setActiveSection] = useState<NavSection>("lectures");
   const [isHoveringAdd, setIsHoveringAdd] = useState(false);
   const [isHoveringLogout, setIsHoveringLogout] = useState(false);
@@ -1881,15 +2101,16 @@ export function AdminDashboard() {
     }
   }, [isAuthenticated, navigate]);
 
-  // Show banner when actor is ready but no II identity is present
+  // Auto-trigger Internet Identity login when actor is ready but no II identity is present
   useEffect(() => {
-    if (isAuthenticated && !isActorFetching && !identity) {
-      setNeedsIdentity(true);
+    if (isAuthenticated && !isActorFetching && !identity && !isIILoggingIn) {
+      // Auto-trigger Internet Identity login so backend calls work
+      iiLogin();
     }
     if (identity) {
       setNeedsIdentity(false);
     }
-  }, [isAuthenticated, isActorFetching, identity]);
+  }, [isAuthenticated, isActorFetching, identity, isIILoggingIn, iiLogin]);
 
   const loadSection = useCallback(
     async (section: NavSection) => {
@@ -1920,14 +2141,28 @@ export function AdminDashboard() {
           setResearchItems(data);
         }
       } catch (e) {
-        setLoadError(
-          e instanceof Error ? e.message : "Failed to load data from backend.",
-        );
+        const msg =
+          e instanceof Error ? e.message : "Failed to load data from backend.";
+        if (
+          msg.toLowerCase().includes("unauthorized") ||
+          msg.toLowerCase().includes("not registered") ||
+          msg.toLowerCase().includes("trap")
+        ) {
+          // Need to authenticate — trigger II login
+          if (!identity && !isIILoggingIn) {
+            iiLogin();
+          }
+          setLoadError(
+            "Please complete Internet Identity authentication to access admin data.",
+          );
+        } else {
+          setLoadError(msg);
+        }
       } finally {
         setIsLoading(false);
       }
     },
-    [actor],
+    [actor, identity, isIILoggingIn, iiLogin],
   );
 
   useEffect(() => {
@@ -1935,6 +2170,13 @@ export function AdminDashboard() {
       loadSection(activeSection);
     }
   }, [activeSection, isAuthenticated, actor, isActorFetching, loadSection]);
+
+  // Retry handler — called from modal ActorNotReadyBanners
+  const handleRetryActor = useCallback(() => {
+    if (actor && !isActorFetching) {
+      void loadSection(activeSection);
+    }
+  }, [actor, isActorFetching, loadSection, activeSection]);
 
   const handleLogout = () => {
     logout();
@@ -2019,8 +2261,10 @@ export function AdminDashboard() {
   };
 
   const handleSaveCvLink = async () => {
-    if (!actor) {
-      setCvLinkError("Actor not ready. Please wait or re-authenticate.");
+    if (!actor || !isActorReady) {
+      setCvLinkError(
+        "Setting up secure connection — please try again in a moment.",
+      );
       return;
     }
     setCvLinkSaving(true);
@@ -2040,8 +2284,10 @@ export function AdminDashboard() {
   };
 
   const handleSaveCvPdf = async () => {
-    if (!actor) {
-      setCvPdfError("Actor not ready. Please wait or re-authenticate.");
+    if (!actor || !isActorReady) {
+      setCvPdfError(
+        "Setting up secure connection — please try again in a moment.",
+      );
       return;
     }
     if (!cvPdfBase64) {
@@ -2142,6 +2388,35 @@ export function AdminDashboard() {
     >
       <CursorReset />
 
+      {/* ── Internet Identity loading overlay ── */}
+      {isIILoggingIn && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 200,
+            backgroundColor: "rgba(0,0,0,0.7)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            backdropFilter: "blur(4px)",
+            WebkitBackdropFilter: "blur(4px)",
+          }}
+        >
+          <p
+            style={{
+              fontFamily: '"JetBrains Mono", monospace',
+              fontSize: "11px",
+              letterSpacing: "0.2em",
+              textTransform: "uppercase",
+              color: "rgba(229,224,216,0.6)",
+            }}
+          >
+            Waiting for Internet Identity...
+          </p>
+        </div>
+      )}
+
       {/* ── Sidebar ── */}
       <motion.aside
         initial={{ opacity: 0, x: -12 }}
@@ -2190,7 +2465,7 @@ export function AdminDashboard() {
             Anthropocene
           </p>
           {/* Identity indicator */}
-          {principalDisplay && (
+          {principalDisplay ? (
             <p
               style={{
                 fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
@@ -2206,6 +2481,52 @@ export function AdminDashboard() {
             >
               ● {principalDisplay}
             </p>
+          ) : (
+            /* No identity — show reconnect button */
+            <button
+              type="button"
+              data-ocid="admin.identity.reconnect_button"
+              onClick={() => iiLogin()}
+              disabled={isIILoggingIn}
+              style={{
+                background: "none",
+                border: "none",
+                padding: 0,
+                display: "flex",
+                alignItems: "center",
+                gap: "0.35rem",
+                cursor: "default",
+                marginTop: "0.5rem",
+                opacity: isIILoggingIn ? 0.5 : 1,
+                transition: "opacity 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                if (!isIILoggingIn) {
+                  (e.currentTarget as HTMLButtonElement).style.opacity = "0.8";
+                }
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.opacity =
+                  isIILoggingIn ? "0.5" : "1";
+              }}
+            >
+              <RefreshCw
+                size={9}
+                strokeWidth={1.5}
+                style={{ color: "#8C3A3A", flexShrink: 0 }}
+              />
+              <span
+                style={{
+                  fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                  fontSize: "8px",
+                  letterSpacing: "0.15em",
+                  textTransform: "uppercase",
+                  color: "#8C3A3A",
+                }}
+              >
+                {isIILoggingIn ? "Connecting..." : "Reconnect Identity"}
+              </span>
+            </button>
           )}
           {isActorFetching && (
             <p
@@ -2215,8 +2536,19 @@ export function AdminDashboard() {
                 letterSpacing: "0.08em",
                 color: "rgba(229,224,216,0.3)",
                 margin: "0.5rem 0 0",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.3rem",
               }}
             >
+              <Loader2
+                size={8}
+                strokeWidth={1.5}
+                style={{
+                  animation: "spin 1s linear infinite",
+                  flexShrink: 0,
+                }}
+              />
               Connecting to backend...
             </p>
           )}
@@ -2391,14 +2723,23 @@ export function AdminDashboard() {
           <button
             type="button"
             data-ocid="admin.add_entry.primary_button"
-            onClick={() => setShowAddModal(true)}
-            onMouseEnter={() => setIsHoveringAdd(true)}
+            onClick={() => {
+              if (isActorReady) setShowAddModal(true);
+            }}
+            disabled={!isActorReady}
+            onMouseEnter={() => {
+              if (isActorReady) setIsHoveringAdd(true);
+            }}
             onMouseLeave={() => setIsHoveringAdd(false)}
             style={{
               display: "flex",
               alignItems: "center",
               gap: "0.5rem",
-              background: isHoveringAdd ? "#a84444" : "#8C3A3A",
+              background: isActorFetching
+                ? "rgba(140,58,58,0.4)"
+                : isHoveringAdd && isActorReady
+                  ? "#a84444"
+                  : "#8C3A3A",
               border: "none",
               borderRadius: "0",
               padding: "0.75rem 1.5rem",
@@ -2410,10 +2751,23 @@ export function AdminDashboard() {
               cursor: "default",
               transition: "background 0.2s ease",
               flexShrink: 0,
+              opacity: !isActorReady ? 0.6 : 1,
             }}
           >
-            <Plus size={12} strokeWidth={2} />
-            Add New Entry
+            {isActorFetching ? (
+              <Loader2
+                size={12}
+                strokeWidth={2}
+                style={{ animation: "spin 1s linear infinite" }}
+              />
+            ) : (
+              <Plus size={12} strokeWidth={2} />
+            )}
+            {isActorFetching
+              ? "Connecting..."
+              : !identity
+                ? "Reconnect First"
+                : "Add New Entry"}
           </button>
         </div>
 
@@ -2465,7 +2819,8 @@ export function AdminDashboard() {
                     lineHeight: 1.5,
                   }}
                 >
-                  Connect your Internet Identity to enable uploads
+                  Internet Identity required — please complete the popup to
+                  enable the admin panel.
                 </p>
               </div>
               <button
@@ -2502,7 +2857,7 @@ export function AdminDashboard() {
                   }
                 }}
               >
-                {isIILoggingIn ? "Opening..." : "Connect Identity"}
+                {isIILoggingIn ? "Opening..." : "Open Identity Popup"}
               </button>
             </motion.div>
           )}
@@ -2996,6 +3351,9 @@ export function AdminDashboard() {
                 onClose={() => setShowAddModal(false)}
                 onSuccess={() => loadSection("lectures")}
                 actor={actor}
+                isActorReady={isActorReady}
+                isActorFetching={isActorFetching}
+                onRetryActor={handleRetryActor}
               />
             )}
             {activeSection === "students-works" && (
@@ -3003,6 +3361,9 @@ export function AdminDashboard() {
                 onClose={() => setShowAddModal(false)}
                 onSuccess={() => loadSection("students-works")}
                 actor={actor}
+                isActorReady={isActorReady}
+                isActorFetching={isActorFetching}
+                onRetryActor={handleRetryActor}
               />
             )}
             {activeSection === "art-portfolio" && (
@@ -3010,6 +3371,9 @@ export function AdminDashboard() {
                 onClose={() => setShowAddModal(false)}
                 onSuccess={() => loadSection("art-portfolio")}
                 actor={actor}
+                isActorReady={isActorReady}
+                isActorFetching={isActorFetching}
+                onRetryActor={handleRetryActor}
               />
             )}
             {activeSection === "design-portfolio" && (
@@ -3017,6 +3381,9 @@ export function AdminDashboard() {
                 onClose={() => setShowAddModal(false)}
                 onSuccess={() => loadSection("design-portfolio")}
                 actor={actor}
+                isActorReady={isActorReady}
+                isActorFetching={isActorFetching}
+                onRetryActor={handleRetryActor}
               />
             )}
             {activeSection === "research" && (
@@ -3024,6 +3391,9 @@ export function AdminDashboard() {
                 onClose={() => setShowAddModal(false)}
                 onSuccess={() => loadSection("research")}
                 actor={actor}
+                isActorReady={isActorReady}
+                isActorFetching={isActorFetching}
+                onRetryActor={handleRetryActor}
               />
             )}
           </>

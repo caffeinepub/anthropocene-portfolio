@@ -500,6 +500,15 @@ function PortfolioCard({ item, index }: PortfolioCardProps) {
   const [showPDFModal, setShowPDFModal] = useState(false);
   const [isPDFButtonHovered, setIsPDFButtonHovered] = useState(false);
   const hasMedia = !!(item.figmaUrl || item.imageData || item.videoUrl);
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth < 768 : false,
+  );
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   return (
     <motion.div
@@ -573,20 +582,24 @@ function PortfolioCard({ item, index }: PortfolioCardProps) {
         <div
           style={{
             display: "flex",
-            flexDirection: "row",
-            minHeight: "260px",
+            flexDirection: isMobile ? "column" : "row",
+            minHeight: isMobile ? "auto" : "260px",
           }}
         >
-          {/* Left — media zone (65% → 100% when expanded) */}
+          {/* Left — media zone (65% → 100% when expanded, always 100% on mobile) */}
           <motion.div
-            animate={{ width: isExpanded ? "100%" : "65%" }}
+            animate={
+              isMobile
+                ? { width: "100%" }
+                : { width: isExpanded ? "100%" : "65%" }
+            }
             transition={{ duration: 0.5, ease: "easeInOut" }}
             style={{
               position: "relative",
               overflow: "hidden",
               flexShrink: 0,
               background: "#0a0a0a",
-              minHeight: "260px",
+              minHeight: isMobile ? "220px" : "260px",
             }}
           >
             {/* Expand/collapse toggle — top right of media zone */}
@@ -635,19 +648,23 @@ function PortfolioCard({ item, index }: PortfolioCardProps) {
             />
           </motion.div>
 
-          {/* Right — description zone (35% → 0% when expanded) */}
+          {/* Right — description zone (35% → 0% on desktop when expanded; full width below on mobile) */}
           <motion.div
-            animate={{
-              width: isExpanded ? "0%" : "35%",
-              opacity: isExpanded ? 0 : 1,
-            }}
+            animate={
+              isMobile
+                ? { width: "100%", opacity: 1 }
+                : {
+                    width: isExpanded ? "0%" : "35%",
+                    opacity: isExpanded ? 0 : 1,
+                  }
+            }
             transition={{ duration: 0.5, ease: "easeInOut" }}
             style={{
               overflow: "hidden",
               flexShrink: 0,
               background: "#8C3A3A",
-              minHeight: "260px",
-              padding: isExpanded ? "0" : "1.5rem",
+              minHeight: isMobile ? "auto" : "260px",
+              padding: isMobile ? "1.25rem" : isExpanded ? "0" : "1.5rem",
             }}
           >
             {item.description && (

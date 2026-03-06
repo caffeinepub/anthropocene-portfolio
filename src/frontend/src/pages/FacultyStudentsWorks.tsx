@@ -159,6 +159,15 @@ function StudentCard({
   const [isExpanded, setIsExpanded] = useState(false);
   const [showPdf, setShowPdf] = useState(false);
   const hasPdf = !!item.pdfData?.trim();
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth < 768 : false,
+  );
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   return (
     <>
@@ -173,18 +182,19 @@ function StudentCard({
         }}
         style={{
           display: "flex",
-          flexDirection: "row",
+          flexDirection: isMobile ? "column" : "row",
           background: "#0e0e0e",
           border: "1px solid rgba(229,224,216,0.06)",
           borderRadius: "2px",
           overflow: "hidden",
-          minHeight: "280px",
+          minHeight: isMobile ? "auto" : "280px",
         }}
       >
-        {/* ── Left: Photo ── */}
+        {/* ── Photo (top on mobile, left on desktop) ── */}
         <div
           style={{
-            width: "38%",
+            width: isMobile ? "100%" : "38%",
+            height: isMobile ? "220px" : "auto",
             flexShrink: 0,
             background: "#111111",
             overflow: "hidden",
@@ -207,7 +217,7 @@ function StudentCard({
               style={{
                 width: "100%",
                 height: "100%",
-                minHeight: "280px",
+                minHeight: isMobile ? "220px" : "280px",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -229,11 +239,11 @@ function StudentCard({
           )}
         </div>
 
-        {/* ── Right: Info ── */}
+        {/* ── Info (below on mobile, right on desktop) ── */}
         <div
           style={{
             flex: 1,
-            padding: "2rem 1.75rem",
+            padding: isMobile ? "1.5rem 1.25rem" : "2rem 1.75rem",
             display: "flex",
             flexDirection: "column",
             justifyContent: "space-between",

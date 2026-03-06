@@ -402,6 +402,15 @@ function StudioCard({
   const [showPDFModal, setShowPDFModal] = useState(false);
   const [isPDFButtonHovered, setIsPDFButtonHovered] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth < 768 : false,
+  );
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const { scrollYProgress } = useScroll({
     target: cardRef,
@@ -438,7 +447,7 @@ function StudioCard({
           {/* Top Row — Title */}
           <div
             style={{
-              padding: "2.5rem 3rem 2rem",
+              padding: isMobile ? "1.25rem 1rem 1rem" : "2.5rem 3rem 2rem",
               borderBottom: "1px solid rgba(229,224,216,0.07)",
             }}
           >
@@ -474,16 +483,20 @@ function StudioCard({
           <div
             style={{
               display: "flex",
-              flexDirection: "row",
-              gap: "2.5rem",
-              padding: "2.5rem 3rem 3rem",
+              flexDirection: isMobile ? "column" : "row",
+              gap: isMobile ? "0" : "2.5rem",
+              padding: isMobile ? "1rem 1rem 1.5rem" : "2.5rem 3rem 3rem",
               alignItems: "stretch",
-              minHeight: "520px",
+              minHeight: isMobile ? "auto" : "520px",
             }}
           >
             {/* Left: Prototype Zone — animates between 65% and 100% */}
             <motion.div
-              animate={{ width: isExpanded ? "100%" : "65%" }}
+              animate={
+                isMobile
+                  ? { width: "100%" }
+                  : { width: isExpanded ? "100%" : "65%" }
+              }
               transition={{ duration: 0.5, ease: "easeInOut" }}
               style={{
                 position: "relative",
@@ -580,21 +593,29 @@ function StudioCard({
               />
             </motion.div>
 
-            {/* Right: Description Panel — animates between 35% and 0% */}
+            {/* Right: Description Panel — on desktop animates between 35% and 0%; on mobile always full width below */}
             <motion.div
               initial="rest"
-              whileHover="hover"
+              whileHover={isMobile ? undefined : "hover"}
               variants={containerVariants}
-              animate={{
-                width: isExpanded ? "0%" : "35%",
-                opacity: isExpanded ? 0 : 1,
-              }}
+              animate={
+                isMobile
+                  ? { width: "100%", opacity: 1 }
+                  : {
+                      width: isExpanded ? "0%" : "35%",
+                      opacity: isExpanded ? 0 : 1,
+                    }
+              }
               style={{
                 overflow: "hidden",
                 flexShrink: 0,
                 background: "#8C3A3A",
-                borderRadius: "4px",
-                padding: isExpanded ? "0" : "2.5rem 2rem",
+                borderRadius: isMobile ? "0 0 4px 4px" : "4px",
+                padding: isMobile
+                  ? "1.5rem 1.25rem"
+                  : isExpanded
+                    ? "0"
+                    : "2.5rem 2rem",
                 display: "flex",
                 flexDirection: "column",
                 justifyContent: "space-between",
@@ -881,7 +902,7 @@ export function FacultyLectures() {
         style={{
           maxWidth: "1200px",
           margin: "0 auto",
-          padding: "8rem 2.5rem 10rem",
+          padding: "clamp(5rem, 8vw, 8rem) clamp(1rem, 3vw, 2.5rem) 10rem",
           position: "relative",
           zIndex: 5,
         }}

@@ -97,6 +97,15 @@ export function Home() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const { setIsRevealed } = useCursor();
   const [hasRevealed, setHasRevealed] = useState(false);
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth < 768 : false,
+  );
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   // Raw mouse position
   const rawX = useMotionValue(
@@ -263,33 +272,93 @@ export function Home() {
           </motion.h1>
         </div>
 
-        {/* ── Floating CTAs ──────────────────────────────────────── */}
-        <FloatingLink
-          to="/faculty"
-          text="Anthropocene: Design Faculty & Design Portfolio"
-          duration={6}
-          ocid="home.nav.link.1"
-          index={1}
-          style={{ top: "28%", left: "8%" }}
-        />
+        {/* ── Floating CTAs — stacked vertically on mobile, absolute positioned on desktop ── */}
+        {isMobile ? (
+          <div
+            style={{
+              position: "fixed",
+              bottom: "5.5rem",
+              left: "50%",
+              transform: "translateX(-50%)",
+              zIndex: 30,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "0.75rem",
+              width: "90vw",
+              maxWidth: "320px",
+            }}
+          >
+            {[
+              {
+                to: "/faculty",
+                text: "Design Faculty & Portfolio",
+                ocid: "home.nav.link.1",
+              },
+              {
+                to: "/art-practice",
+                text: "Art Practice",
+                ocid: "home.nav.link.2",
+              },
+              { to: "/research", text: "Research", ocid: "home.nav.link.3" },
+            ].map(({ to, text, ocid }) => (
+              <button
+                key={to}
+                type="button"
+                data-ocid={ocid}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void navigate({ to } as Parameters<typeof navigate>[0]);
+                }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  padding: "8px 0",
+                  fontFamily: "Inter, system-ui, sans-serif",
+                  fontSize: "11px",
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                  color: "rgba(229,224,216,0.75)",
+                  cursor: "default",
+                  width: "100%",
+                  textAlign: "center",
+                  lineHeight: 1.6,
+                }}
+              >
+                {text}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <>
+            <FloatingLink
+              to="/faculty"
+              text="Anthropocene: Design Faculty & Design Portfolio"
+              duration={6}
+              ocid="home.nav.link.1"
+              index={1}
+              style={{ top: "28%", left: "8%" }}
+            />
 
-        <FloatingLink
-          to="/art-practice"
-          text="Anthropocene: Art Practice"
-          duration={8}
-          ocid="home.nav.link.2"
-          index={2}
-          style={{ top: "62%", right: "10%" }}
-        />
+            <FloatingLink
+              to="/art-practice"
+              text="Anthropocene: Art Practice"
+              duration={8}
+              ocid="home.nav.link.2"
+              index={2}
+              style={{ top: "62%", right: "10%" }}
+            />
 
-        <FloatingLink
-          to="/research"
-          text="Anthropocene: Research"
-          duration={10}
-          ocid="home.nav.link.3"
-          index={3}
-          style={{ top: "42%", left: "55%" }}
-        />
+            <FloatingLink
+              to="/research"
+              text="Anthropocene: Research"
+              duration={10}
+              ocid="home.nav.link.3"
+              index={3}
+              style={{ top: "42%", left: "55%" }}
+            />
+          </>
+        )}
       </div>
 
       {/* ── View Research link ────────────────────────────────────── */}

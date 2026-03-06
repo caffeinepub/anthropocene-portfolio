@@ -723,6 +723,9 @@ export function Research() {
     w: typeof window !== "undefined" ? window.innerWidth : 1440,
     h: typeof window !== "undefined" ? window.innerHeight : 900,
   });
+  const [isNavMobile, setIsNavMobile] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth < 640 : false,
+  );
 
   // Confirmation overlay state — user must click "Enter Canvas" first
   const [hasEntered, setHasEntered] = useState(false);
@@ -749,6 +752,7 @@ export function Research() {
           h: containerRef.current.offsetHeight,
         });
       }
+      setIsNavMobile(window.innerWidth < 640);
     };
     update();
     window.addEventListener("resize", update);
@@ -877,7 +881,7 @@ export function Research() {
           </Link>
         </motion.div>
 
-        {/* Top-right nav menu */}
+        {/* Top-right nav menu — hidden on small mobile to prevent overflow */}
         <motion.nav
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -887,7 +891,7 @@ export function Research() {
             position: "fixed",
             top: "2rem",
             right: "2rem",
-            display: "flex",
+            display: isNavMobile ? "none" : "flex",
             alignItems: "center",
             gap: "1.75rem",
             pointerEvents: "auto",

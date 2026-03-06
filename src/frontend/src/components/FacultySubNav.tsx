@@ -1,6 +1,6 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { motion } from "motion/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useCursor } from "../context/CursorContext";
 
 const SUB_LINKS = [
@@ -79,14 +79,26 @@ function SubNavLink({
 export function FacultySubNav() {
   const location = useLocation();
   const currentPath = location.pathname;
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth < 768 : false,
+  );
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   return (
     <nav
       style={{
         display: "flex",
         alignItems: "center",
-        gap: "2.5rem",
-        paddingLeft: "calc(2rem + clamp(16px, 1.4vw, 22px) + 8rem)",
+        flexWrap: "wrap",
+        gap: isMobile ? "1rem" : "2.5rem",
+        paddingLeft: isMobile
+          ? "1rem"
+          : "calc(2rem + clamp(16px, 1.4vw, 22px) + 8rem)",
         paddingTop: "1.75rem",
         paddingBottom: "1.75rem",
         position: "relative",
