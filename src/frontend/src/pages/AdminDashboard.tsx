@@ -27,6 +27,37 @@ import { useActor } from "../hooks/useActor";
 import { useAdminAuth } from "../hooks/useAdminAuth";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 
+// ─── Actor retry utilities ─────────────────────────────────────────────────────
+
+/** Waits ms milliseconds */
+function delay(ms: number) {
+  return new Promise<void>((res) => setTimeout(res, ms));
+}
+
+/** Calls fn, retrying up to maxAttempts with exponential backoff if actor is not yet ready */
+async function withActorRetry<T>(
+  getActor: () => import("../backend.d").backendInterface | null,
+  fn: (actor: import("../backend.d").backendInterface) => Promise<T>,
+  maxAttempts = 6,
+  baseDelayMs = 1500,
+): Promise<T> {
+  let lastError: unknown = new Error("Actor not ready");
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const actor = getActor();
+    if (actor) {
+      try {
+        return await fn(actor);
+      } catch (err) {
+        lastError = err;
+      }
+    }
+    if (attempt < maxAttempts - 1) {
+      await delay(baseDelayMs * 1.5 ** attempt);
+    }
+  }
+  throw lastError;
+}
+
 function CursorReset() {
   const { setIsRevealed, setCursorLabel, setSuppressDefaultLabel } =
     useCursor();
@@ -2059,6 +2090,7 @@ export function AdminDashboard() {
     identity,
     login: iiLogin,
     isLoggingIn: isIILoggingIn,
+    isInitializing: isIIInitializing,
   } = useInternetIdentity();
   const { actor, isFetching: isActorFetching } = useActor();
   const isActorReady = !!actor && !isActorFetching;
@@ -2101,59 +2133,77 @@ export function AdminDashboard() {
     }
   }, [isAuthenticated, navigate]);
 
-  // Auto-trigger Internet Identity login when actor is ready but no II identity is present
+  // Show a reconnect prompt if II initialization is done and we still have no identity.
+  // Never auto-trigger the popup — that causes login loops. The user clicks the button.
   useEffect(() => {
-    if (isAuthenticated && !isActorFetching && !identity && !isIILoggingIn) {
-      // Auto-trigger Internet Identity login so backend calls work
-      iiLogin();
-    }
-    if (identity) {
+    if (!isIIInitializing && !identity && isAuthenticated) {
+      setNeedsIdentity(true);
+    } else if (identity) {
       setNeedsIdentity(false);
     }
-  }, [isAuthenticated, isActorFetching, identity, isIILoggingIn, iiLogin]);
+  }, [identity, isIIInitializing, isAuthenticated]);
 
   const loadSection = useCallback(
     async (section: NavSection) => {
-      if (!actor) return;
       setIsLoading(true);
       setLoadError(null);
       try {
         if (section === "lectures") {
-          const data = await actor.listAllLectures();
+          const data = await withActorRetry(
+            () => actor,
+            (a) => a.listAllLectures(),
+          );
           setLectures(data);
         } else if (section === "students-works") {
-          const data = await actor.listAllStudentWorks();
+          const data = await withActorRetry(
+            () => actor,
+            (a) => a.listAllStudentWorks(),
+          );
           setStudentWorks(data);
         } else if (section === "art-portfolio") {
-          const data = await actor.listAllArtItems();
+          const data = await withActorRetry(
+            () => actor,
+            (a) => a.listAllArtItems(),
+          );
           setArtItems(data);
         } else if (section === "design-portfolio") {
-          const [data, link, pdf] = await Promise.all([
-            actor.listAllDesignPortfolio(),
-            actor.getCvLink(),
-            actor.getCvPdf(),
-          ]);
+          const [data, link, pdf] = await withActorRetry(
+            () => actor,
+            (a) =>
+              Promise.all([
+                a.listAllDesignPortfolio(),
+                a.getCvLink(),
+                a.getCvPdf(),
+              ]),
+          );
           setDesignItems(data);
           setCvLinkInput(link?.trim() ?? "");
           setCvPdfAlreadySet(!!pdf?.trim());
         } else if (section === "research") {
-          const data = await actor.listAllResearchItems();
+          const data = await withActorRetry(
+            () => actor,
+            (a) => a.listAllResearchItems(),
+          );
           setResearchItems(data);
         }
       } catch (e) {
         const msg =
           e instanceof Error ? e.message : "Failed to load data from backend.";
+        const msgLower = msg.toLowerCase();
         if (
-          msg.toLowerCase().includes("unauthorized") ||
-          msg.toLowerCase().includes("not registered") ||
-          msg.toLowerCase().includes("trap")
+          msgLower.includes("unauthorized") ||
+          msgLower.includes("not registered") ||
+          msgLower.includes("trap")
         ) {
-          // Need to authenticate — trigger II login
-          if (!identity && !isIILoggingIn) {
-            iiLogin();
-          }
           setLoadError(
-            "Please complete Internet Identity authentication to access admin data.",
+            "Session expired — click 'Reconnect Identity' in the sidebar to restore access.",
+          );
+        } else if (
+          msgLower.includes("not ready") ||
+          msgLower.includes("actor not ready")
+        ) {
+          setLoadError(
+            "Backend is warming up — please wait a moment and try again.",
           );
         } else {
           setLoadError(msg);
@@ -2162,14 +2212,28 @@ export function AdminDashboard() {
         setIsLoading(false);
       }
     },
-    [actor, identity, isIILoggingIn, iiLogin],
+    [actor],
   );
 
   useEffect(() => {
-    if (isAuthenticated && actor && !isActorFetching) {
+    if (
+      isAuthenticated &&
+      actor &&
+      !isActorFetching &&
+      identity &&
+      !isIIInitializing
+    ) {
       loadSection(activeSection);
     }
-  }, [activeSection, isAuthenticated, actor, isActorFetching, loadSection]);
+  }, [
+    activeSection,
+    isAuthenticated,
+    actor,
+    isActorFetching,
+    identity,
+    isIIInitializing,
+    loadSection,
+  ]);
 
   // Retry handler — called from modal ActorNotReadyBanners
   const handleRetryActor = useCallback(() => {
@@ -2261,9 +2325,9 @@ export function AdminDashboard() {
   };
 
   const handleSaveCvLink = async () => {
-    if (!actor || !isActorReady) {
+    if (!identity) {
       setCvLinkError(
-        "Setting up secure connection — please try again in a moment.",
+        "Session expired — please click 'Reconnect Identity' in the sidebar.",
       );
       return;
     }
@@ -2271,12 +2335,25 @@ export function AdminDashboard() {
     setCvLinkError(null);
     setCvLinkSaved(false);
     try {
-      await actor.setCvLink(cvLinkInput.trim());
+      const trimmed = cvLinkInput.trim();
+      await withActorRetry(
+        () => actor,
+        (a) => a.setCvLink(trimmed),
+      );
       setCvLinkSaved(true);
       setTimeout(() => setCvLinkSaved(false), 2000);
     } catch (e) {
+      const msg = e instanceof Error ? e.message : "Failed to save CV link.";
+      const msgLower = msg.toLowerCase();
       setCvLinkError(
-        e instanceof Error ? e.message : "Failed to save CV link.",
+        msgLower.includes("unauthorized") ||
+          msgLower.includes("not registered") ||
+          msgLower.includes("trap")
+          ? "Session expired — click 'Reconnect Identity' in the sidebar."
+          : msgLower.includes("not ready") ||
+              msgLower.includes("actor not ready")
+            ? "Backend is warming up — please try again in a moment."
+            : msg,
       );
     } finally {
       setCvLinkSaving(false);
@@ -2284,9 +2361,9 @@ export function AdminDashboard() {
   };
 
   const handleSaveCvPdf = async () => {
-    if (!actor || !isActorReady) {
+    if (!identity) {
       setCvPdfError(
-        "Setting up secure connection — please try again in a moment.",
+        "Session expired — please click 'Reconnect Identity' in the sidebar.",
       );
       return;
     }
@@ -2298,12 +2375,27 @@ export function AdminDashboard() {
     setCvPdfError(null);
     setCvPdfSaved(false);
     try {
-      await actor.setCvPdf(cvPdfBase64);
+      const pdfData = cvPdfBase64;
+      await withActorRetry(
+        () => actor,
+        (a) => a.setCvPdf(pdfData),
+      );
       setCvPdfSaved(true);
       setCvPdfAlreadySet(true);
       setTimeout(() => setCvPdfSaved(false), 2000);
     } catch (e) {
-      setCvPdfError(e instanceof Error ? e.message : "Failed to save CV PDF.");
+      const msg = e instanceof Error ? e.message : "Failed to save CV PDF.";
+      const msgLower = msg.toLowerCase();
+      setCvPdfError(
+        msgLower.includes("unauthorized") ||
+          msgLower.includes("not registered") ||
+          msgLower.includes("trap")
+          ? "Session expired — click 'Reconnect Identity' in the sidebar."
+          : msgLower.includes("not ready") ||
+              msgLower.includes("actor not ready")
+            ? "Backend is warming up — please try again in a moment."
+            : msg,
+      );
     } finally {
       setCvPdfSaving(false);
     }
@@ -2387,35 +2479,6 @@ export function AdminDashboard() {
       }}
     >
       <CursorReset />
-
-      {/* ── Internet Identity loading overlay ── */}
-      {isIILoggingIn && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 200,
-            backgroundColor: "rgba(0,0,0,0.7)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            backdropFilter: "blur(4px)",
-            WebkitBackdropFilter: "blur(4px)",
-          }}
-        >
-          <p
-            style={{
-              fontFamily: '"JetBrains Mono", monospace',
-              fontSize: "11px",
-              letterSpacing: "0.2em",
-              textTransform: "uppercase",
-              color: "rgba(229,224,216,0.6)",
-            }}
-          >
-            Waiting for Internet Identity...
-          </p>
-        </div>
-      )}
 
       {/* ── Sidebar ── */}
       <motion.aside
@@ -2720,60 +2783,109 @@ export function AdminDashboard() {
           </div>
 
           {/* Add New Entry button */}
-          <button
-            type="button"
-            data-ocid="admin.add_entry.primary_button"
-            onClick={() => {
-              if (isActorReady) setShowAddModal(true);
-            }}
-            disabled={!isActorReady}
-            onMouseEnter={() => {
-              if (isActorReady) setIsHoveringAdd(true);
-            }}
-            onMouseLeave={() => setIsHoveringAdd(false)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              background: isActorFetching
-                ? "rgba(140,58,58,0.4)"
-                : isHoveringAdd && isActorReady
-                  ? "#a84444"
-                  : "#8C3A3A",
-              border: "none",
-              borderRadius: "0",
-              padding: "0.75rem 1.5rem",
-              fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
-              fontSize: "9px",
-              letterSpacing: "0.25em",
-              textTransform: "uppercase",
-              color: "#E5E0D8",
-              cursor: "default",
-              transition: "background 0.2s ease",
-              flexShrink: 0,
-              opacity: !isActorReady ? 0.6 : 1,
-            }}
-          >
-            {isActorFetching ? (
-              <Loader2
-                size={12}
-                strokeWidth={2}
-                style={{ animation: "spin 1s linear infinite" }}
-              />
-            ) : (
-              <Plus size={12} strokeWidth={2} />
-            )}
-            {isActorFetching
-              ? "Connecting..."
-              : !identity
-                ? "Reconnect First"
-                : "Add New Entry"}
-          </button>
+          {(() => {
+            const canAdd = isActorReady && !!identity && !isIIInitializing;
+            return (
+              <button
+                type="button"
+                data-ocid="admin.add_entry.primary_button"
+                onClick={() => {
+                  if (canAdd) setShowAddModal(true);
+                }}
+                disabled={!canAdd}
+                onMouseEnter={() => {
+                  if (canAdd) setIsHoveringAdd(true);
+                }}
+                onMouseLeave={() => setIsHoveringAdd(false)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  background:
+                    isActorFetching || isIIInitializing
+                      ? "rgba(140,58,58,0.4)"
+                      : isHoveringAdd && canAdd
+                        ? "#a84444"
+                        : "#8C3A3A",
+                  border: "none",
+                  borderRadius: "0",
+                  padding: "0.75rem 1.5rem",
+                  fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                  fontSize: "9px",
+                  letterSpacing: "0.25em",
+                  textTransform: "uppercase",
+                  color: "#E5E0D8",
+                  cursor: "default",
+                  transition: "background 0.2s ease",
+                  flexShrink: 0,
+                  opacity: !canAdd ? 0.6 : 1,
+                }}
+              >
+                {isActorFetching || isIIInitializing ? (
+                  <Loader2
+                    size={12}
+                    strokeWidth={2}
+                    style={{ animation: "spin 1s linear infinite" }}
+                  />
+                ) : (
+                  <Plus size={12} strokeWidth={2} />
+                )}
+                {isActorFetching || isIIInitializing
+                  ? "Connecting..."
+                  : !identity
+                    ? "Reconnect First"
+                    : "Add New Entry"}
+              </button>
+            );
+          })()}
         </div>
 
-        {/* Internet Identity banner — shown when no II session is present */}
+        {/* II initializing overlay — shown while checking localStorage for saved session */}
         <AnimatePresence>
-          {needsIdentity && (
+          {isIIInitializing && isAuthenticated && (
+            <motion.div
+              data-ocid="admin.identity.loading_state"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              style={{
+                backgroundColor: "#1a1a1a",
+                borderBottom: "1px solid rgba(229,224,216,0.06)",
+                padding: "0.75rem 3rem",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.75rem",
+                flexShrink: 0,
+              }}
+            >
+              <Loader2
+                size={10}
+                strokeWidth={1.5}
+                style={{
+                  color: "rgba(229,224,216,0.4)",
+                  animation: "spin 1s linear infinite",
+                  flexShrink: 0,
+                }}
+              />
+              <p
+                style={{
+                  fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                  fontSize: "10px",
+                  letterSpacing: "0.08em",
+                  color: "rgba(229,224,216,0.45)",
+                  margin: 0,
+                }}
+              >
+                Restoring your session...
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Internet Identity banner — shown when session has genuinely expired */}
+        <AnimatePresence>
+          {needsIdentity && !isIIInitializing && (
             <motion.div
               data-ocid="admin.identity.banner"
               initial={{ opacity: 0, y: -8 }}
@@ -2819,8 +2931,8 @@ export function AdminDashboard() {
                     lineHeight: 1.5,
                   }}
                 >
-                  Internet Identity required — please complete the popup to
-                  enable the admin panel.
+                  Your session has expired — click to reconnect and restore
+                  admin access.
                 </p>
               </div>
               <button
@@ -2857,7 +2969,7 @@ export function AdminDashboard() {
                   }
                 }}
               >
-                {isIILoggingIn ? "Opening..." : "Open Identity Popup"}
+                {isIILoggingIn ? "Opening..." : "Reconnect Identity"}
               </button>
             </motion.div>
           )}

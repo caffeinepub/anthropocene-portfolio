@@ -6,19 +6,36 @@ import Principal "mo:core/Principal";
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
 
-
-
 actor {
+  // Initialize the access control system
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
 
-  var professionalNarrative = "I am a multidisciplinary design educator and art practitioner working across printmaking, interaction design, and ecological performance. Currently, I serve as an Assistant Professor of Interaction Design at KMCT School of Design, Kerala, where I teach UX research and UI fundamentals. Previously, I was the Design Head at PrepLadder (Unacademy), leading a creative team of 16 in illustration and animation. I hold a Master of Fine Arts and a Bachelor of Fine Arts in Printmaking and Design from the Government College of Art, Chandigarh. My practice is recognized internationally, supported by a Venice Biennale Travel Grant and a MAIR Residency Fellowship in 2024. I specialize in bridging traditional mediums like Etching and Pottery with digital mastery in Figma and the Adobe Creative Suite.";
-
-  var cvLink = "";
-  var cvPdfData = "";
-
   public type UserProfile = {
     name : Text;
+  };
+
+  let userProfiles = Map.empty<Principal, UserProfile>();
+
+  public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can access profiles");
+    };
+    userProfiles.get(caller);
+  };
+
+  public query ({ caller }) func getUserProfile(user : Principal) : async ?UserProfile {
+    if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
+      Runtime.trap("Unauthorized: Can only view your own profile");
+    };
+    userProfiles.get(user);
+  };
+
+  public shared ({ caller }) func saveCallerUserProfile(profile : UserProfile) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can save profiles");
+    };
+    userProfiles.add(caller, profile);
   };
 
   public type LectureItem = {
@@ -69,7 +86,10 @@ actor {
     isLive : Bool;
   };
 
-  let userProfiles = Map.empty<Principal, UserProfile>();
+  var professionalNarrative = "I am a multidisciplinary design educator and art practitioner working across printmaking, interaction design, and ecological performance. Currently, I serve as an Assistant Professor of Interaction Design at KMCT School of Design, Kerala, where I teach UX research and UI fundamentals. Previously, I was the Design Head at PrepLadder (Unacademy), leading a creative team of 16 in illustration and animation. I hold a Master of Fine Arts and a Bachelor of Fine Arts in Printmaking and Design from the Government College of Art, Chandigarh. My practice is recognized internationally, supported by a Venice Biennale Travel Grant and a MAIR Residency Fellowship in 2024. I specialize in bridging traditional mediums like Etching and Pottery with digital mastery in Figma and the Adobe Creative Suite.";
+  var cvLink = "";
+  var cvPdfData = "";
+
   let lectures = Map.empty<Nat, LectureItem>();
   let studentWorks = Map.empty<Nat, StudentWorkItem>();
   let artPortfolio = Map.empty<Nat, ArtPortfolioItem>();
@@ -82,42 +102,16 @@ actor {
   var nextDesignPortfolioId = 1;
   var nextResearchItemId = 1;
 
-  func checkAdmin(caller : Principal) {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can perform this action");
-    };
-  };
-
   // PROFESSIONAL NARRATIVE
   public query func getProfessionalNarrative() : async Text {
     professionalNarrative;
   };
 
   public shared ({ caller }) func setProfessionalNarrative(narrative : Text) : async () {
-    checkAdmin(caller);
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can perform this action");
+    };
     professionalNarrative := narrative;
-  };
-
-  // USER PROFILE MANAGEMENT
-  public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can access profiles");
-    };
-    userProfiles.get(caller);
-  };
-
-  public query ({ caller }) func getUserProfile(user : Principal) : async ?UserProfile {
-    if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
-      Runtime.trap("Unauthorized: Can only view your own profile");
-    };
-    userProfiles.get(user);
-  };
-
-  public shared ({ caller }) func saveCallerUserProfile(profile : UserProfile) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can save profiles");
-    };
-    userProfiles.add(caller, profile);
   };
 
   // LECTURES
@@ -128,7 +122,9 @@ actor {
     duration : Text,
     pdfData : Text,
   ) : async Nat {
-    checkAdmin(caller);
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can perform this action");
+    };
     let id = nextLectureId;
     let lecture : LectureItem = {
       id;
@@ -145,7 +141,9 @@ actor {
   };
 
   public shared ({ caller }) func deleteLecture(id : Nat) : async Bool {
-    checkAdmin(caller);
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can perform this action");
+    };
     switch (lectures.get(id)) {
       case (null) { false };
       case (?_) {
@@ -156,7 +154,9 @@ actor {
   };
 
   public shared ({ caller }) func setLectureLive(id : Nat, isLive : Bool) : async Bool {
-    checkAdmin(caller);
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can perform this action");
+    };
     switch (lectures.get(id)) {
       case (null) { false };
       case (?existing) {
@@ -169,7 +169,7 @@ actor {
 
   public query ({ caller }) func listAllLectures() : async [LectureItem] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can view all lectures");
+      Runtime.trap("Unauthorized: Only admins can perform this action");
     };
     lectures.values().toArray();
   };
@@ -185,7 +185,9 @@ actor {
     photoData : Text,
     pdfData : Text,
   ) : async Nat {
-    checkAdmin(caller);
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can perform this action");
+    };
     let id = nextStudentWorkId;
     let work : StudentWorkItem = {
       id;
@@ -201,7 +203,9 @@ actor {
   };
 
   public shared ({ caller }) func deleteStudentWork(id : Nat) : async Bool {
-    checkAdmin(caller);
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can perform this action");
+    };
     switch (studentWorks.get(id)) {
       case (null) { false };
       case (?_) {
@@ -212,7 +216,9 @@ actor {
   };
 
   public shared ({ caller }) func setStudentWorkLive(id : Nat, isLive : Bool) : async Bool {
-    checkAdmin(caller);
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can perform this action");
+    };
     switch (studentWorks.get(id)) {
       case (null) { false };
       case (?existing) {
@@ -225,7 +231,7 @@ actor {
 
   public query ({ caller }) func listAllStudentWorks() : async [StudentWorkItem] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can view all student works");
+      Runtime.trap("Unauthorized: Only admins can perform this action");
     };
     studentWorks.values().toArray();
   };
@@ -236,7 +242,9 @@ actor {
 
   // ART PORTFOLIO
   public shared ({ caller }) func addArtItem(title : Text, imagePath : Text) : async Nat {
-    checkAdmin(caller);
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can perform this action");
+    };
     let id = nextArtId;
     let item : ArtPortfolioItem = {
       id;
@@ -250,7 +258,9 @@ actor {
   };
 
   public shared ({ caller }) func deleteArtItem(id : Nat) : async Bool {
-    checkAdmin(caller);
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can perform this action");
+    };
     switch (artPortfolio.get(id)) {
       case (null) { false };
       case (?_) {
@@ -261,7 +271,9 @@ actor {
   };
 
   public shared ({ caller }) func setArtItemLive(id : Nat, isLive : Bool) : async Bool {
-    checkAdmin(caller);
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can perform this action");
+    };
     switch (artPortfolio.get(id)) {
       case (null) { false };
       case (?existing) {
@@ -274,7 +286,7 @@ actor {
 
   public query ({ caller }) func listAllArtItems() : async [ArtPortfolioItem] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can view all art items");
+      Runtime.trap("Unauthorized: Only admins can perform this action");
     };
     artPortfolio.values().toArray();
   };
@@ -295,7 +307,9 @@ actor {
     description : Text,
     pdfData : Text,
   ) : async Nat {
-    checkAdmin(caller);
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can perform this action");
+    };
     let id = nextDesignPortfolioId;
     let item : DesignPortfolioItem = {
       id;
@@ -316,7 +330,9 @@ actor {
   };
 
   public shared ({ caller }) func deleteDesignPortfolio(id : Nat) : async Bool {
-    checkAdmin(caller);
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can perform this action");
+    };
     switch (designPortfolio.get(id)) {
       case (null) { false };
       case (?_) {
@@ -327,7 +343,9 @@ actor {
   };
 
   public shared ({ caller }) func setDesignPortfolioLive(id : Nat, isLive : Bool) : async Bool {
-    checkAdmin(caller);
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can perform this action");
+    };
     switch (designPortfolio.get(id)) {
       case (null) { false };
       case (?existing) {
@@ -340,7 +358,7 @@ actor {
 
   public query ({ caller }) func listAllDesignPortfolio() : async [DesignPortfolioItem] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can view all design portfolio items");
+      Runtime.trap("Unauthorized: Only admins can perform this action");
     };
     designPortfolio.values().toArray();
   };
@@ -355,7 +373,9 @@ actor {
     description : Text,
     imagePath : Text,
   ) : async Nat {
-    checkAdmin(caller);
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can perform this action");
+    };
     let id = nextResearchItemId;
     let item : ResearchItem = {
       id;
@@ -370,7 +390,9 @@ actor {
   };
 
   public shared ({ caller }) func deleteResearchItem(id : Nat) : async Bool {
-    checkAdmin(caller);
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can perform this action");
+    };
     switch (researchItems.get(id)) {
       case (null) { false };
       case (?_) {
@@ -381,7 +403,9 @@ actor {
   };
 
   public shared ({ caller }) func setResearchItemLive(id : Nat, isLive : Bool) : async Bool {
-    checkAdmin(caller);
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can perform this action");
+    };
     switch (researchItems.get(id)) {
       case (null) { false };
       case (?existing) {
@@ -394,7 +418,7 @@ actor {
 
   public query ({ caller }) func listAllResearchItems() : async [ResearchItem] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can view all research items");
+      Runtime.trap("Unauthorized: Only admins can perform this action");
     };
     researchItems.values().toArray();
   };
@@ -403,6 +427,7 @@ actor {
     researchItems.values().toArray().filter(func(r) { r.isLive });
   };
 
+  // Public health check endpoint
   public query func healthCheck() : async Bool {
     true;
   };
@@ -413,7 +438,9 @@ actor {
   };
 
   public shared ({ caller }) func setCvLink(link : Text) : async () {
-    checkAdmin(caller);
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can perform this action");
+    };
     cvLink := link;
   };
 
@@ -423,7 +450,9 @@ actor {
   };
 
   public shared ({ caller }) func setCvPdf(data : Text) : async () {
-    checkAdmin(caller);
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can perform this action");
+    };
     cvPdfData := data;
   };
 };

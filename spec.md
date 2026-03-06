@@ -1,34 +1,29 @@
 # Anthropocene Portfolio
 
 ## Current State
-- Research page has a confirmation overlay (pitch-black) before the floating canvas
-- Research background is pure black with a dot-grid texture
-- No background music on the Research page
-- Design Portfolio cards use a vertical stacked layout (media on top, text meta below)
-- DesignPortfolioItem in Motoko has no `description` field
-- Admin form for Design Portfolio has no description input
-- FacultyPortfolio renders a masonry grid of vertical cards
+Full-stack portfolio CMS with Motoko backend and React frontend. Admin dashboard at `/admin` manages lectures, students works, art portfolio, design portfolio, research items, and CV data. Authentication uses Internet Identity (II) combined with a password login. The backend uses a "first authenticated principal becomes admin" pattern — admin registration lives in canister memory and is wiped on every redeployment. This means every redeploy requires II re-authentication to re-register as admin. The frontend also gates the Add button and all save actions on `isActorReady` which depends on II being connected.
 
 ## Requested Changes (Diff)
 
 ### Add
-- Research welcome screen: sketchbook background image (`/assets/uploads/background-image-1.jpg`) at ~0.15 opacity with dark overlay, visible as textural backdrop behind the confirmation UI
-- Research ambient audio: `eryliaa-forest-birds-with-wind-and-crickets-445147.mp3` auto-plays at low diffused volume when Research page loads; continues into the floating canvas; mute/unmute button at bottom-right
-- `description` field to `DesignPortfolioItem` type in Motoko backend
-- Description input to the Admin "Add Design Portfolio" form
-- Split-card layout for Design Portfolio: left side (65%) shows media (Figma iframe / image / video); right side (35%) shows description text
-- Expand/collapse behaviour on the media zone: Maximize2 icon in top-right of the media zone; clicking expands media to 100% width (description collapses to 0%), same Framer Motion animate pattern as the Lectures studio cards
+- Token-based admin verification on every backend call: any call that provides the correct `CAFFEINE_ADMIN_TOKEN` is treated as admin, regardless of which principal made the call (anonymous or otherwise)
+- New backend functions accept an extra `adminToken: Text` parameter for all write/admin operations
+- `checkAdminToken` helper in backend that validates the token directly against the env var on each call
 
 ### Modify
-- `addDesignPortfolio` in Motoko to accept and store `description` param
-- `FacultyPortfolio.tsx` PortfolioCard to use the new split-card layout with expand toggle
-- Research confirmation overlay to show background image texture
+- All admin-gated backend functions (`addLecture`, `deleteLecture`, `setLectureLive`, `listAllLectures`, `addStudentWork`, `deleteStudentWork`, `setStudentWorkLive`, `listAllStudentWorks`, `addArtItem`, `deleteArtItem`, `setArtItemLive`, `listAllArtItems`, `addDesignPortfolio`, `deleteDesignPortfolio`, `setDesignPortfolioLive`, `listAllDesignPortfolio`, `addResearchItem`, `deleteResearchItem`, `setResearchItemLive`, `listAllResearchItems`, `setCvLink`, `setCvPdf`, `setProfessionalNarrative`) — replace `checkAdmin(caller)` with `checkAdminToken(adminToken)` where `adminToken` is a new parameter passed by the frontend on every call
+- `listAll*` query functions must also accept `adminToken` for verification instead of checking principal role
+- Frontend `useActor` hook: pass the `caffeineAdminToken` on every admin call
+- Frontend AdminDashboard: remove all `isActorReady`/`identity` gates — the Add button and CV save buttons work as long as the actor exists (anonymous actor is fine), since auth is now via token
+- Remove the auto-trigger of II login popup from AdminDashboard — II is now optional, not required
+- Error messages: distinguish auth errors from connection errors properly
 
 ### Remove
-- Nothing removed
+- Principal-based admin registration flow (`_initializeAccessControlWithSecret` still exists for legacy but is no longer relied upon)
+- `needsIdentity` state and the II identity banner in AdminDashboard
+- All `disabled={!isActorReady}` and `disabled={!identity}` guards that block the Add button
 
 ## Implementation Plan
-1. **Motoko**: Add `description : Text` to `DesignPortfolioItem` type; add `description` param to `addDesignPortfolio` function
-2. **Admin**: Add description `FormField` to `AddDesignPortfolioModal`; pass it to `actor.addDesignPortfolio`
-3. **Research page**: Add `<img>` background to confirmation overlay at opacity 0.15; add `<audio>` element with forest music file, autoplay, loop, volume 0.04; add mute/unmute button (bottom-right fixed)
-4. **FacultyPortfolio**: Redesign `PortfolioCard` to flex-row split layout; add `isExpanded` state; animate left column width between 65%/100% and right column between 35%/0% with Framer Motion; add Maximize2/Minimize2 toggle button in media zone top-right; map `description` from backend item
+1. Regenerate Motoko backend with token-based auth on all admin functions
+2. Update frontend AdminDashboard to pass token on every call and remove II dependency gates
+3. Deploy
