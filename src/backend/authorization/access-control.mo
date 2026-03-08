@@ -10,6 +10,8 @@ module {
   };
 
   public type AccessControlState = {
+    // adminAssigned is kept for stable-variable compatibility with existing deployed canisters.
+    // It is no longer used as a gate — the correct token ALWAYS grants admin access.
     var adminAssigned : Bool;
     userRoles : Map.Map<Principal, UserRole>;
   };
@@ -21,16 +23,22 @@ module {
     };
   };
 
-  // First principal that calls this function becomes admin, all other principals become users.
+  // Any caller that provides the correct token is ALWAYS registered as admin.
+  // The secret token IS the credential — no one-time "first caller wins" gate.
+  // adminAssigned is kept updated but is never checked as a gate.
+  // Works correctly after every redeployment and every II session change.
+  // Anonymous callers are always silently rejected.
   public func initialize(state : AccessControlState, caller : Principal, adminToken : Text, userProvidedToken : Text) {
     if (caller.isAnonymous()) { return };
-    switch (state.userRoles.get(caller)) {
-      case (?_) {};
-      case (null) {
-        if (not state.adminAssigned and userProvidedToken == adminToken) {
-          state.userRoles.add(caller, #admin);
-          state.adminAssigned := true;
-        } else {
+    if (userProvidedToken == adminToken) {
+      // Correct token -> always grant admin, overwriting any previous role
+      state.userRoles.add(caller, #admin);
+      state.adminAssigned := true;
+    } else {
+      // Wrong/no token -> register as user only if not already registered
+      switch (state.userRoles.get(caller)) {
+        case (?_) {};
+        case (null) {
           state.userRoles.add(caller, #user);
         };
       };

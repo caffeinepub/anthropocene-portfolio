@@ -34,7 +34,20 @@ function delay(ms: number) {
   return new Promise<void>((res) => setTimeout(res, ms));
 }
 
-/** Calls fn, retrying up to maxAttempts with exponential backoff if actor is not yet ready */
+/** Returns true if the error is an auth/authorization error that should NOT be retried */
+function isAuthError(err: unknown): boolean {
+  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  return (
+    msg.includes("unauthorized") ||
+    msg.includes("not registered") ||
+    msg.includes("trap") ||
+    msg.includes("forbidden") ||
+    msg.includes("access denied")
+  );
+}
+
+/** Calls fn, retrying up to maxAttempts with exponential backoff if actor is not yet ready.
+ *  Auth errors (unauthorized / not registered) are NOT retried — they fail immediately. */
 async function withActorRetry<T>(
   getActor: () => import("../backend.d").backendInterface | null,
   fn: (actor: import("../backend.d").backendInterface) => Promise<T>,
@@ -48,6 +61,8 @@ async function withActorRetry<T>(
       try {
         return await fn(actor);
       } catch (err) {
+        // Auth errors will never succeed with more retries — fail immediately
+        if (isAuthError(err)) throw err;
         lastError = err;
       }
     }
@@ -2143,6 +2158,40 @@ export function AdminDashboard() {
     }
   }, [identity, isIIInitializing, isAuthenticated]);
 
+  // Force reconnect: directly opens a fresh II popup.
+  // We do NOT call iiClear() first — that triggers a full authClient re-init loop
+  // which sets isIIInitializing=true for several seconds and disables the Add button.
+  const forceReconnect = useCallback(() => {
+    iiLogin();
+  }, [iiLogin]);
+
+  // Hard reset: wipes ALL II-related localStorage keys and reloads the page.
+  const hardResetSession = useCallback(() => {
+    try {
+      // Remove all known II localStorage keys
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (
+          key &&
+          (key.startsWith("ic-") ||
+            key.startsWith("dfx-") ||
+            key.includes("delegation") ||
+            key.includes("identity") ||
+            key.includes("auth-client"))
+        ) {
+          keysToRemove.push(key);
+        }
+      }
+      for (const k of keysToRemove) {
+        localStorage.removeItem(k);
+      }
+    } catch {
+      // ignore storage errors
+    }
+    window.location.reload();
+  }, []);
+
   const loadSection = useCallback(
     async (section: NavSection) => {
       setIsLoading(true);
@@ -2195,8 +2244,9 @@ export function AdminDashboard() {
           msgLower.includes("not registered") ||
           msgLower.includes("trap")
         ) {
+          // Auth error — show a clear message; the always-visible sidebar button handles reconnect
           setLoadError(
-            "Session expired — click 'Reconnect Identity' in the sidebar to restore access.",
+            "Identity expired — use the 'Reconnect Identity' button in the sidebar.",
           );
         } else if (
           msgLower.includes("not ready") ||
@@ -2216,24 +2266,14 @@ export function AdminDashboard() {
   );
 
   useEffect(() => {
-    if (
-      isAuthenticated &&
-      actor &&
-      !isActorFetching &&
-      identity &&
-      !isIIInitializing
-    ) {
+    // Load section as soon as the actor is ready — no identity required.
+    // Content lists are readable by any authenticated actor (including anonymous).
+    // Writes (uploads) still require II, which is enforced at the handler level.
+    // isIIInitializing intentionally excluded — don't block data loading on II state.
+    if (isAuthenticated && actor && !isActorFetching) {
       loadSection(activeSection);
     }
-  }, [
-    activeSection,
-    isAuthenticated,
-    actor,
-    isActorFetching,
-    identity,
-    isIIInitializing,
-    loadSection,
-  ]);
+  }, [activeSection, isAuthenticated, actor, isActorFetching, loadSection]);
 
   // Retry handler — called from modal ActorNotReadyBanners
   const handleRetryActor = useCallback(() => {
@@ -2326,9 +2366,8 @@ export function AdminDashboard() {
 
   const handleSaveCvLink = async () => {
     if (!identity) {
-      setCvLinkError(
-        "Session expired — please click 'Reconnect Identity' in the sidebar.",
-      );
+      // No identity — trigger reconnect immediately instead of showing dead text
+      forceReconnect();
       return;
     }
     setCvLinkSaving(true);
@@ -2345,16 +2384,17 @@ export function AdminDashboard() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to save CV link.";
       const msgLower = msg.toLowerCase();
-      setCvLinkError(
+      if (
         msgLower.includes("unauthorized") ||
-          msgLower.includes("not registered") ||
-          msgLower.includes("trap")
-          ? "Session expired — click 'Reconnect Identity' in the sidebar."
-          : msgLower.includes("not ready") ||
-              msgLower.includes("actor not ready")
-            ? "Backend is warming up — please try again in a moment."
-            : msg,
-      );
+        msgLower.includes("not registered") ||
+        msgLower.includes("trap")
+      ) {
+        // Auth error — trigger reconnect popup, clear the error state
+        setCvLinkError(null);
+        forceReconnect();
+      } else {
+        setCvLinkError(msg);
+      }
     } finally {
       setCvLinkSaving(false);
     }
@@ -2362,9 +2402,8 @@ export function AdminDashboard() {
 
   const handleSaveCvPdf = async () => {
     if (!identity) {
-      setCvPdfError(
-        "Session expired — please click 'Reconnect Identity' in the sidebar.",
-      );
+      // No identity — trigger reconnect immediately instead of showing dead text
+      forceReconnect();
       return;
     }
     if (!cvPdfBase64) {
@@ -2386,16 +2425,17 @@ export function AdminDashboard() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to save CV PDF.";
       const msgLower = msg.toLowerCase();
-      setCvPdfError(
+      if (
         msgLower.includes("unauthorized") ||
-          msgLower.includes("not registered") ||
-          msgLower.includes("trap")
-          ? "Session expired — click 'Reconnect Identity' in the sidebar."
-          : msgLower.includes("not ready") ||
-              msgLower.includes("actor not ready")
-            ? "Backend is warming up — please try again in a moment."
-            : msg,
-      );
+        msgLower.includes("not registered") ||
+        msgLower.includes("trap")
+      ) {
+        // Auth error — trigger reconnect popup, clear the error state
+        setCvPdfError(null);
+        forceReconnect();
+      } else {
+        setCvPdfError(msg);
+      }
     } finally {
       setCvPdfSaving(false);
     }
@@ -2549,7 +2589,7 @@ export function AdminDashboard() {
             <button
               type="button"
               data-ocid="admin.identity.reconnect_button"
-              onClick={() => iiLogin()}
+              onClick={forceReconnect}
               disabled={isIILoggingIn}
               style={{
                 background: "none",
@@ -2714,6 +2754,151 @@ export function AdminDashboard() {
             </span>
           </button>
 
+          {/* ── Always-visible Internet Identity auth buttons ── */}
+          <div
+            style={{
+              marginTop: "1.25rem",
+              paddingTop: "1rem",
+              borderTop: "1px solid rgba(229,224,216,0.06)",
+              display: "flex",
+              flexDirection: "column",
+              gap: "0.5rem",
+            }}
+          >
+            <p
+              style={{
+                fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                fontSize: "7px",
+                letterSpacing: "0.25em",
+                textTransform: "uppercase",
+                color: "rgba(229,224,216,0.2)",
+                margin: "0 0 0.4rem",
+              }}
+            >
+              Internet Identity
+            </p>
+
+            {/* Reconnect Identity button — always visible */}
+            <button
+              type="button"
+              data-ocid="admin.identity.reconnect_button"
+              onClick={forceReconnect}
+              disabled={isIILoggingIn}
+              style={{
+                width: "100%",
+                background: identity
+                  ? "rgba(229,224,216,0.04)"
+                  : "rgba(140,58,58,0.15)",
+                border: identity
+                  ? "1px solid rgba(229,224,216,0.12)"
+                  : "1px solid rgba(140,58,58,0.4)",
+                borderRadius: "0",
+                padding: "0.6rem 0.75rem",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.45rem",
+                cursor: "default",
+                transition: "background 0.2s, border-color 0.2s, opacity 0.2s",
+                opacity: isIILoggingIn ? 0.55 : 1,
+              }}
+              onMouseEnter={(e) => {
+                if (!isIILoggingIn) {
+                  (e.currentTarget as HTMLButtonElement).style.background =
+                    identity
+                      ? "rgba(229,224,216,0.08)"
+                      : "rgba(140,58,58,0.25)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.background =
+                  identity ? "rgba(229,224,216,0.04)" : "rgba(140,58,58,0.15)";
+              }}
+            >
+              {isIILoggingIn ? (
+                <Loader2
+                  size={9}
+                  strokeWidth={1.5}
+                  style={{
+                    color: "#8C3A3A",
+                    animation: "spin 1s linear infinite",
+                    flexShrink: 0,
+                  }}
+                />
+              ) : (
+                <RefreshCw
+                  size={9}
+                  strokeWidth={1.5}
+                  style={{
+                    color: identity ? "rgba(229,224,216,0.5)" : "#8C3A3A",
+                    flexShrink: 0,
+                  }}
+                />
+              )}
+              <span
+                style={{
+                  fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                  fontSize: "8px",
+                  letterSpacing: "0.15em",
+                  textTransform: "uppercase",
+                  color: identity ? "rgba(229,224,216,0.55)" : "#8C3A3A",
+                }}
+              >
+                {isIILoggingIn
+                  ? "Opening..."
+                  : identity
+                    ? "Re-authenticate"
+                    : "Reconnect Identity"}
+              </span>
+            </button>
+
+            {/* Hard Reset Session button — always visible */}
+            <button
+              type="button"
+              data-ocid="admin.identity.hard_reset_button"
+              onClick={hardResetSession}
+              style={{
+                width: "100%",
+                background: "none",
+                border: "1px solid rgba(229,224,216,0.08)",
+                borderRadius: "0",
+                padding: "0.5rem 0.75rem",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.45rem",
+                cursor: "default",
+                transition: "border-color 0.2s, opacity 0.2s",
+                opacity: 0.45,
+              }}
+              onMouseEnter={(e) => {
+                const el = e.currentTarget as HTMLButtonElement;
+                el.style.opacity = "0.8";
+                el.style.borderColor = "rgba(229,224,216,0.2)";
+              }}
+              onMouseLeave={(e) => {
+                const el = e.currentTarget as HTMLButtonElement;
+                el.style.opacity = "0.45";
+                el.style.borderColor = "rgba(229,224,216,0.08)";
+              }}
+            >
+              <X
+                size={9}
+                strokeWidth={1.5}
+                style={{ color: "rgba(229,224,216,0.5)", flexShrink: 0 }}
+              />
+              <span
+                style={{
+                  fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                  fontSize: "7px",
+                  letterSpacing: "0.15em",
+                  textTransform: "uppercase",
+                  color: "rgba(229,224,216,0.5)",
+                }}
+              >
+                Hard Reset Session
+              </span>
+            </button>
+          </div>
+
           <p
             style={{
               fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
@@ -2784,7 +2969,7 @@ export function AdminDashboard() {
 
           {/* Add New Entry button */}
           {(() => {
-            const canAdd = isActorReady && !!identity && !isIIInitializing;
+            const canAdd = isActorReady && !isIIInitializing;
             return (
               <button
                 type="button"
@@ -2832,9 +3017,7 @@ export function AdminDashboard() {
                 )}
                 {isActorFetching || isIIInitializing
                   ? "Connecting..."
-                  : !identity
-                    ? "Reconnect First"
-                    : "Add New Entry"}
+                  : "Add New Entry"}
               </button>
             );
           })()}
@@ -2938,7 +3121,7 @@ export function AdminDashboard() {
               <button
                 type="button"
                 data-ocid="admin.identity.connect_button"
-                onClick={() => iiLogin()}
+                onClick={forceReconnect}
                 disabled={isIILoggingIn}
                 style={{
                   background: isIILoggingIn ? "rgba(140,58,58,0.5)" : "#8C3A3A",
