@@ -494,7 +494,7 @@ export function ArtPractice() {
     if (!audio) return;
 
     // Gallery volume — atmospheric but audible
-    audio.volume = 0.18;
+    audio.volume = 0.09;
 
     const tryPlay = () => {
       if (hasStartedRef.current) return;

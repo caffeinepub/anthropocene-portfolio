@@ -7,6 +7,7 @@ const SUB_LINKS = [
   { label: "Lectures", to: "/faculty/lectures" },
   { label: "Students Works", to: "/faculty/students-works" },
   { label: "Design Portfolio", to: "/faculty/portfolio" },
+  { label: "CV", to: "/faculty/cv" },
 ] as const;
 
 function SubNavLink({

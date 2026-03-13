@@ -460,7 +460,7 @@ export function FacultyStudentsWorks() {
         style={{
           maxWidth: "960px",
           margin: "0 auto",
-          padding: "2.5rem 2rem 6rem",
+          padding: "clamp(1rem, 3vw, 2.5rem) clamp(0.75rem, 2vw, 2rem) 6rem",
           position: "relative",
           zIndex: 5,
         }}

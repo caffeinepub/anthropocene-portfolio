@@ -18,6 +18,7 @@ import { AdminLogin } from "./pages/AdminLogin";
 import { Art } from "./pages/Art";
 import { ArtPractice } from "./pages/ArtPractice";
 import { Design } from "./pages/Design";
+import { FacultyCV } from "./pages/FacultyCV";
 import { FacultyLanding } from "./pages/FacultyLanding";
 import { FacultyLectures } from "./pages/FacultyLectures";
 import { FacultyPortfolio } from "./pages/FacultyPortfolio";
@@ -125,6 +126,12 @@ const facultyPortfolioRoute = createRoute({
   component: FacultyPortfolio,
 });
 
+const facultyCVRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/faculty/cv",
+  component: FacultyCV,
+});
+
 const adminRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/admin",
@@ -147,6 +154,7 @@ const routeTree = rootRoute.addChildren([
   facultyLecturesRoute,
   facultyStudentsWorksRoute,
   facultyPortfolioRoute,
+  facultyCVRoute,
   adminRoute,
   adminDashboardRoute,
 ]);

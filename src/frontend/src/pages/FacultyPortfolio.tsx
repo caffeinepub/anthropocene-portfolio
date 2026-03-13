@@ -41,151 +41,20 @@ function NarrativeWordSplit({ text }: { text: string }) {
   );
 }
 
-// ─── CV Modal ─────────────────────────────────────────────────────────────────
-
-function CVModal({
-  cvLink,
-  cvPdfData = "",
-  onClose,
-}: {
-  cvLink: string;
-  cvPdfData?: string;
-  onClose: () => void;
-}) {
-  // Escape key to close
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [onClose]);
-
-  // Build iframe src: append ?hide_ui=1 for Figma URLs
-  const iframeSrc = (() => {
-    if (cvLink.includes("figma.site") || cvLink.includes("figma.com")) {
-      return cvLink.includes("hide_ui=1")
-        ? cvLink
-        : `${cvLink}${cvLink.includes("?") ? "&" : "?"}hide_ui=1`;
-    }
-    return cvLink;
-  })();
-
-  return (
-    <motion.div
-      data-ocid="portfolio.cv.modal"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.25, ease: "easeOut" }}
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 200,
-        background: "rgba(0,0,0,0.95)",
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
-      {/* Header bar — close button lives here, never overlapped by iframe */}
-      <div
-        style={{
-          height: "48px",
-          background: "rgba(0,0,0,0.98)",
-          display: "flex",
-          justifyContent: "flex-end",
-          alignItems: "center",
-          padding: "0 1.5rem",
-          flexShrink: 0,
-        }}
-      >
-        <button
-          type="button"
-          data-ocid="portfolio.cv.close_button"
-          onClick={onClose}
-          aria-label="Close CV overlay"
-          style={{
-            background: "none",
-            border: "none",
-            padding: "0.4rem",
-            cursor: "default",
-            color: "rgba(229,224,216,0.7)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            lineHeight: 0,
-            transition: "color 0.2s ease",
-          }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.color = "#8C3A3A";
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.color =
-              "rgba(229,224,216,0.7)";
-          }}
-        >
-          <X size={24} strokeWidth={1.5} />
-        </button>
-      </div>
-
-      {/* PDF embed or iframe fills remaining space */}
-      {cvPdfData ? (
-        <embed
-          src={cvPdfData}
-          type="application/pdf"
-          title="Curriculum Vitae"
-          style={{
-            flex: 1,
-            width: "100%",
-            border: "none",
-            display: "block",
-          }}
-        />
-      ) : (
-        <iframe
-          src={iframeSrc}
-          title="Curriculum Vitae"
-          style={{
-            flex: 1,
-            width: "100%",
-            border: "none",
-            display: "block",
-          }}
-          allow="fullscreen"
-        />
-      )}
-    </motion.div>
-  );
-}
-
 // ─── Professional Narrative Card ──────────────────────────────────────────────
 
 function ProfessionalNarrativeCard() {
   const [narrative, setNarrative] = useState<string | null>(null);
-  const [cvLink, setCvLink] = useState<string>("");
-  const [cvPdfData, setCvPdfData] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
-  const [showCVModal, setShowCVModal] = useState(false);
-  const [isCVButtonHovered, setIsCVButtonHovered] = useState(false);
 
   useEffect(() => {
     getBackend()
-      .then((b) =>
-        Promise.all([
-          b.getProfessionalNarrative(),
-          b.getCvLink(),
-          b.getCvPdf(),
-        ]),
-      )
-      .then(([text, link, pdf]) => {
+      .then((b) => b.getProfessionalNarrative())
+      .then((text) => {
         setNarrative(text?.trim() ? text : DEFAULT_NARRATIVE);
-        setCvLink(link?.trim() ?? "");
-        setCvPdfData(pdf?.trim() ?? "");
       })
       .catch(() => {
         setNarrative(DEFAULT_NARRATIVE);
-        setCvLink("");
-        setCvPdfData("");
       })
       .finally(() => setIsLoading(false));
   }, []);
@@ -268,85 +137,7 @@ function ProfessionalNarrativeCard() {
             <NarrativeWordSplit text={narrative ?? DEFAULT_NARRATIVE} />
           </p>
         )}
-
-        {/* CV Button — always visible; clicking opens modal if link is set */}
-        {!isLoading && (
-          <div
-            style={{
-              marginTop: "2.25rem",
-              paddingTop: "1.5rem",
-              borderTop: "1px solid rgba(229,224,216,0.06)",
-              display: "flex",
-              justifyContent: "center",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: "0.5rem",
-            }}
-          >
-            <button
-              type="button"
-              data-ocid="portfolio.cv.open_modal_button"
-              onClick={() => {
-                if (cvPdfData) {
-                  setShowCVModal(true);
-                } else if (cvLink) {
-                  if (cvLink.includes("figma.site")) {
-                    window.open(cvLink, "_blank", "noopener,noreferrer");
-                  } else {
-                    setShowCVModal(true);
-                  }
-                }
-              }}
-              onMouseEnter={() => setIsCVButtonHovered(true)}
-              onMouseLeave={() => setIsCVButtonHovered(false)}
-              style={{
-                background: "none",
-                border: `1px solid ${isCVButtonHovered ? "rgba(229,224,216,0.85)" : "rgba(229,224,216,0.35)"}`,
-                padding: "0.6rem 1.6rem",
-                fontFamily: "Inter, system-ui, sans-serif",
-                fontSize: "9px",
-                letterSpacing: "0.3em",
-                textTransform: "uppercase",
-                color: "#E5E0D8",
-                cursor: "default",
-                borderRadius: "0",
-                transition: "border-color 0.3s ease, box-shadow 0.3s ease",
-                boxShadow: isCVButtonHovered
-                  ? "0 0 12px rgba(229,224,216,0.12)"
-                  : "none",
-                opacity: cvLink || cvPdfData ? 1 : 0.45,
-              }}
-            >
-              Press for detailed CV
-            </button>
-            {!cvLink && !cvPdfData && (
-              <p
-                style={{
-                  fontFamily: "Inter, system-ui, sans-serif",
-                  fontSize: "8px",
-                  letterSpacing: "0.2em",
-                  textTransform: "uppercase",
-                  color: "rgba(229,224,216,0.2)",
-                  margin: 0,
-                }}
-              >
-                CV link not set — add it via admin dashboard
-              </p>
-            )}
-          </div>
-        )}
       </motion.div>
-
-      {/* CV Modal */}
-      <AnimatePresence>
-        {showCVModal && (
-          <CVModal
-            cvLink={cvLink}
-            cvPdfData={cvPdfData}
-            onClose={() => setShowCVModal(false)}
-          />
-        )}
-      </AnimatePresence>
     </>
   );
 }
@@ -874,7 +665,7 @@ export function FacultyPortfolio() {
         style={{
           maxWidth: "1100px",
           margin: "0 auto",
-          padding: "2.5rem 2rem 6rem",
+          padding: "clamp(1rem, 4vw, 2.5rem) clamp(0.75rem, 2vw, 2rem) 6rem",
           position: "relative",
           zIndex: 5,
         }}
@@ -925,7 +716,8 @@ export function FacultyPortfolio() {
             animate={{ opacity: 1 }}
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
+              gridTemplateColumns:
+                "repeat(auto-fill, minmax(min(340px, 100%), 1fr))",
               gap: "1.5rem",
             }}
           >
@@ -973,7 +765,8 @@ export function FacultyPortfolio() {
             data-ocid="portfolio.card.list"
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
+              gridTemplateColumns:
+                "repeat(auto-fill, minmax(min(340px, 100%), 1fr))",
               gap: "1.5rem",
             }}
           >

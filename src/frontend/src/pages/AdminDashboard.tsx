@@ -94,7 +94,8 @@ type NavSection =
   | "students-works"
   | "art-portfolio"
   | "design-portfolio"
-  | "research";
+  | "research"
+  | "cv";
 
 const navItems: {
   id: NavSection;
@@ -132,6 +133,12 @@ const navItems: {
     icon: <Layers size={13} strokeWidth={1.5} />,
     ocid: "admin.research.link",
   },
+  {
+    id: "cv",
+    label: "Manage CV",
+    icon: <FileIcon size={13} strokeWidth={1.5} />,
+    ocid: "admin.cv.link",
+  },
 ];
 
 const SECTION_META: Record<NavSection, { title: string; description: string }> =
@@ -160,6 +167,11 @@ const SECTION_META: Record<NavSection, { title: string; description: string }> =
       title: "Research",
       description:
         "Manage floating canvas research cards — images, poems, sketches, and thought fragments.",
+    },
+    cv: {
+      title: "CV",
+      description:
+        "Upload your Curriculum Vitae PDF or set a CV link. This will appear on the public CV page.",
     },
   };
 
@@ -2235,6 +2247,13 @@ export function AdminDashboard() {
             (a) => a.listAllResearchItems(),
           );
           setResearchItems(data);
+        } else if (section === "cv") {
+          const [link, pdf] = await withActorRetry(
+            () => actor,
+            (a) => Promise.all([a.getCvLink(), a.getCvPdf()]),
+          );
+          setCvLinkInput(link?.trim() ?? "");
+          setCvPdfAlreadySet(!!pdf?.trim());
         }
       } catch (e) {
         const msg =
@@ -2497,6 +2516,7 @@ export function AdminDashboard() {
         onDelete: handleDeleteResearchItem,
       }));
     }
+    if (activeSection === "cv") return [];
     return [];
   })();
 
@@ -2974,60 +2994,61 @@ export function AdminDashboard() {
             </h1>
           </div>
 
-          {/* Add New Entry button */}
-          {(() => {
-            const canAdd = isActorReady && !isIIInitializing;
-            return (
-              <button
-                type="button"
-                data-ocid="admin.add_entry.primary_button"
-                onClick={() => {
-                  if (canAdd) setShowAddModal(true);
-                }}
-                disabled={!canAdd}
-                onMouseEnter={() => {
-                  if (canAdd) setIsHoveringAdd(true);
-                }}
-                onMouseLeave={() => setIsHoveringAdd(false)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                  background:
-                    isActorFetching || isIIInitializing
-                      ? "rgba(140,58,58,0.4)"
-                      : isHoveringAdd && canAdd
-                        ? "#a84444"
-                        : "#8C3A3A",
-                  border: "none",
-                  borderRadius: "0",
-                  padding: "0.75rem 1.5rem",
-                  fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
-                  fontSize: "9px",
-                  letterSpacing: "0.25em",
-                  textTransform: "uppercase",
-                  color: "#E5E0D8",
-                  cursor: "default",
-                  transition: "background 0.2s ease",
-                  flexShrink: 0,
-                  opacity: !canAdd ? 0.6 : 1,
-                }}
-              >
-                {isActorFetching || isIIInitializing ? (
-                  <Loader2
-                    size={12}
-                    strokeWidth={2}
-                    style={{ animation: "spin 1s linear infinite" }}
-                  />
-                ) : (
-                  <Plus size={12} strokeWidth={2} />
-                )}
-                {isActorFetching || isIIInitializing
-                  ? "Connecting..."
-                  : "Add New Entry"}
-              </button>
-            );
-          })()}
+          {/* Add New Entry button — hidden for CV section (settings-only) */}
+          {activeSection !== "cv" &&
+            (() => {
+              const canAdd = isActorReady && !isIIInitializing;
+              return (
+                <button
+                  type="button"
+                  data-ocid="admin.add_entry.primary_button"
+                  onClick={() => {
+                    if (canAdd) setShowAddModal(true);
+                  }}
+                  disabled={!canAdd}
+                  onMouseEnter={() => {
+                    if (canAdd) setIsHoveringAdd(true);
+                  }}
+                  onMouseLeave={() => setIsHoveringAdd(false)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                    background:
+                      isActorFetching || isIIInitializing
+                        ? "rgba(140,58,58,0.4)"
+                        : isHoveringAdd && canAdd
+                          ? "#a84444"
+                          : "#8C3A3A",
+                    border: "none",
+                    borderRadius: "0",
+                    padding: "0.75rem 1.5rem",
+                    fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                    fontSize: "9px",
+                    letterSpacing: "0.25em",
+                    textTransform: "uppercase",
+                    color: "#E5E0D8",
+                    cursor: "default",
+                    transition: "background 0.2s ease",
+                    flexShrink: 0,
+                    opacity: !canAdd ? 0.6 : 1,
+                  }}
+                >
+                  {isActorFetching || isIIInitializing ? (
+                    <Loader2
+                      size={12}
+                      strokeWidth={2}
+                      style={{ animation: "spin 1s linear infinite" }}
+                    />
+                  ) : (
+                    <Plus size={12} strokeWidth={2} />
+                  )}
+                  {isActorFetching || isIIInitializing
+                    ? "Connecting..."
+                    : "Add New Entry"}
+                </button>
+              );
+            })()}
         </div>
 
         {/* II initializing overlay — shown while checking localStorage for saved session */}
@@ -3225,8 +3246,8 @@ export function AdminDashboard() {
               {currentMeta.description}
             </p>
 
-            {/* CV Settings — design-portfolio only */}
-            {activeSection === "design-portfolio" && (
+            {/* CV Settings */}
+            {activeSection === "cv" && (
               <div
                 style={{
                   paddingBottom: "2rem",

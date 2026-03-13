@@ -1,6 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 import { motion } from "motion/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AnthropoceneAnchor } from "../components/AnthropoceneAnchor";
 import { useCursor } from "../context/CursorContext";
 
@@ -90,6 +90,36 @@ function FloatingSubLink({
 }
 
 export function FacultyLanding() {
+  const navigate = useNavigate();
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth < 768 : false,
+  );
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  const mobileLinks = [
+    {
+      to: "/faculty/lectures",
+      text: "Lectures",
+      ocid: "faculty.lectures.button",
+    },
+    {
+      to: "/faculty/students-works",
+      text: "Students Works",
+      ocid: "faculty.students.button",
+    },
+    {
+      to: "/faculty/portfolio",
+      text: "Design Portfolio",
+      ocid: "faculty.portfolio.button",
+    },
+    { to: "/faculty/cv", text: "CV", ocid: "faculty.cv.button" },
+  ];
+
   return (
     <div
       data-ocid="faculty.page"
@@ -168,28 +198,90 @@ export function FacultyLanding() {
         </motion.h1>
       </div>
 
-      {/* Floating sub-nav links */}
-      <FloatingSubLink
-        to="/faculty/lectures"
-        text="Lectures"
-        duration={6}
-        ocid="faculty.lectures.button"
-        style={{ top: "30%", left: "10%" }}
-      />
-      <FloatingSubLink
-        to="/faculty/students-works"
-        text="Students Works"
-        duration={8}
-        ocid="faculty.students.button"
-        style={{ top: "60%", right: "12%" }}
-      />
-      <FloatingSubLink
-        to="/faculty/portfolio"
-        text="Design Portfolio"
-        duration={10}
-        ocid="faculty.portfolio.button"
-        style={{ top: "44%", left: "62%" }}
-      />
+      {/* Mobile: stacked vertical nav at bottom */}
+      {isMobile ? (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, delay: 0.5 }}
+          style={{
+            position: "fixed",
+            bottom: "5rem",
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 30,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "0.85rem",
+            width: "90vw",
+            maxWidth: "320px",
+          }}
+        >
+          {mobileLinks.map(({ to, text, ocid }) => (
+            <button
+              key={to}
+              type="button"
+              data-ocid={ocid}
+              onClick={() =>
+                void navigate({ to } as Parameters<typeof navigate>[0])
+              }
+              style={{
+                background: "none",
+                border: "none",
+                padding: "10px 0",
+                fontFamily: "Inter, system-ui, sans-serif",
+                fontSize: "11px",
+                letterSpacing: "0.2em",
+                textTransform: "uppercase",
+                color: "rgba(229,224,216,0.65)",
+                cursor: "default",
+                width: "100%",
+                textAlign: "center",
+                lineHeight: 1.6,
+                minHeight: "44px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {text}
+            </button>
+          ))}
+        </motion.div>
+      ) : (
+        <>
+          {/* Desktop: floating absolute-positioned links */}
+          <FloatingSubLink
+            to="/faculty/lectures"
+            text="Lectures"
+            duration={6}
+            ocid="faculty.lectures.button"
+            style={{ top: "30%", left: "10%" }}
+          />
+          <FloatingSubLink
+            to="/faculty/students-works"
+            text="Students Works"
+            duration={8}
+            ocid="faculty.students.button"
+            style={{ top: "60%", right: "12%" }}
+          />
+          <FloatingSubLink
+            to="/faculty/portfolio"
+            text="Design Portfolio"
+            duration={10}
+            ocid="faculty.portfolio.button"
+            style={{ top: "44%", left: "62%" }}
+          />
+          <FloatingSubLink
+            to="/faculty/cv"
+            text="CV"
+            duration={7}
+            ocid="faculty.cv.button"
+            style={{ top: "22%", right: "18%" }}
+          />
+        </>
+      )}
 
       {/* Footer attribution */}
       <div

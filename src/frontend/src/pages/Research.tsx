@@ -729,6 +729,7 @@ export function Research() {
 
   // Confirmation overlay state — user must click "Enter Canvas" first
   const [hasEntered, setHasEntered] = useState(false);
+  const [bgImageLoaded, setBgImageLoaded] = useState(false);
 
   const [researchItems, setResearchItems] = useState<ResearchItem[]>([]);
   const [backendLoaded, setBackendLoaded] = useState(false);
@@ -737,7 +738,7 @@ export function Research() {
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    audio.volume = 1.0;
+    audio.volume = 0.5;
     audio.play().catch(() => {
       // Autoplay blocked — will retry on user interaction (Enter Canvas click)
     });
@@ -1006,19 +1007,34 @@ export function Research() {
               padding: "2rem",
             }}
           >
-            {/* Background image — sketchbook texture, full opacity */}
+            {/* Background image skeleton — shown while image loads */}
+            {!bgImageLoaded && (
+              <div
+                aria-hidden="true"
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  backgroundColor: "#0a0a0a",
+                  animation: "pulse 2s ease-in-out infinite",
+                  zIndex: 0,
+                }}
+              />
+            )}
+            {/* Background image — sketchbook texture, full opacity, Cloudinary-optimized */}
             <img
-              src="https://res.cloudinary.com/dvmvka9ll/image/upload/v1772701097/npm_vnylxz.jpg"
+              src="https://res.cloudinary.com/dvmvka9ll/image/upload/q_auto,f_auto,w_1920/v1772701097/npm_vnylxz.jpg"
               aria-hidden="true"
               alt=""
               draggable={false}
+              onLoad={() => setBgImageLoaded(true)}
               style={{
                 position: "absolute",
                 inset: 0,
                 width: "100%",
                 height: "100%",
                 objectFit: "cover",
-                opacity: 1,
+                opacity: bgImageLoaded ? 1 : 0,
+                transition: "opacity 0.8s ease",
                 pointerEvents: "none",
                 userSelect: "none",
                 zIndex: 0,

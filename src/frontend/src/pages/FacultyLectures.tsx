@@ -141,7 +141,7 @@ function EcologyAIChat() {
               bottom: "5rem",
               right: "1.5rem",
               zIndex: 55,
-              width: "340px",
+              width: "min(340px, calc(100vw - 3rem))",
               height: "420px",
               background: "rgba(74,74,74,0.15)",
               backdropFilter: "blur(20px)",

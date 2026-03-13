@@ -9,7 +9,7 @@ const ADMIN_TOKEN = "Anthropocene@2026";
 export const STEALTH_TRIGGER_EVENT = "anthropocene:stealth-trigger";
 
 export function StealthAdminClaim() {
-  const { actor } = useActor();
+  const { actor, isFetching: isActorFetching } = useActor();
   const { identity, login, isInitializing } = useInternetIdentity();
   const [visible, setVisible] = useState(false);
   const [claimed, setClaimed] = useState(() => {
@@ -18,24 +18,32 @@ export function StealthAdminClaim() {
   const [status, setStatus] = useState<
     "idle" | "claiming" | "success" | "error"
   >("idle");
-  const hasMountChecked = useRef(false);
+  const hasVerifiedRef = useRef(false);
 
-  // On mount, silently check if already admin and self-destruct
+  // On mount, always verify actual admin status regardless of localStorage flag
+  // This ensures the claim button re-appears after backend redeployments
   useEffect(() => {
-    if (hasMountChecked.current || !actor || isInitializing || claimed) return;
-    hasMountChecked.current = true;
+    if (hasVerifiedRef.current || !actor || isActorFetching || isInitializing)
+      return;
+    hasVerifiedRef.current = true;
     actor
       .isCallerAdmin()
       .then((isAdmin) => {
         if (isAdmin) {
           localStorage.setItem(STORAGE_KEY, "true");
           setClaimed(true);
+        } else {
+          // Not actually admin (backend was redeployed) — reset so claim can show again
+          localStorage.removeItem(STORAGE_KEY);
+          setClaimed(false);
         }
       })
       .catch(() => {
-        /* silent */
+        // On error, reset to allow reclaim
+        localStorage.removeItem(STORAGE_KEY);
+        setClaimed(false);
       });
-  }, [actor, isInitializing, claimed]);
+  }, [actor, isActorFetching, isInitializing]);
 
   // Keyboard shortcut: Ctrl + Alt + A (works on Mac and Windows, no browser conflict)
   useEffect(() => {
