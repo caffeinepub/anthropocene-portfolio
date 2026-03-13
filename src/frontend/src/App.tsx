@@ -9,6 +9,7 @@ import {
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect } from "react";
 import { CustomCursor } from "./components/CustomCursor";
+import { StealthAdminClaim } from "./components/StealthAdminClaim";
 import { CursorProvider } from "./context/CursorContext";
 import { VisibilityContextProvider } from "./context/VisibilityContext";
 import { InternetIdentityProvider } from "./hooks/useInternetIdentity";
@@ -55,6 +56,7 @@ function RootLayout() {
     <CursorProvider>
       <VisibilityContextProvider>
         <CustomCursor />
+        <StealthAdminClaim />
         <AnimatePresence mode="wait">
           <PageTransition key={location.pathname}>
             <Outlet />

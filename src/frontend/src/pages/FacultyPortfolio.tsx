@@ -45,9 +45,11 @@ function NarrativeWordSplit({ text }: { text: string }) {
 
 function CVModal({
   cvLink,
+  cvPdfData = "",
   onClose,
 }: {
   cvLink: string;
+  cvPdfData?: string;
   onClose: () => void;
 }) {
   // Escape key to close
@@ -82,55 +84,76 @@ function CVModal({
         zIndex: 200,
         background: "rgba(0,0,0,0.95)",
         display: "flex",
-        alignItems: "stretch",
-        justifyContent: "stretch",
+        flexDirection: "column",
       }}
     >
-      {/* Close button */}
-      <button
-        type="button"
-        data-ocid="portfolio.cv.close_button"
-        onClick={onClose}
-        aria-label="Close CV overlay"
+      {/* Header bar — close button lives here, never overlapped by iframe */}
+      <div
         style={{
-          position: "absolute",
-          top: "1.5rem",
-          right: "1.5rem",
-          zIndex: 210,
-          background: "none",
-          border: "none",
-          padding: "0.4rem",
-          cursor: "default",
-          color: "rgba(229,224,216,0.7)",
+          height: "48px",
+          background: "rgba(0,0,0,0.98)",
           display: "flex",
+          justifyContent: "flex-end",
           alignItems: "center",
-          justifyContent: "center",
-          lineHeight: 0,
-          transition: "color 0.2s ease",
-        }}
-        onMouseEnter={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.color = "#8C3A3A";
-        }}
-        onMouseLeave={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.color =
-            "rgba(229,224,216,0.7)";
+          padding: "0 1.5rem",
+          flexShrink: 0,
         }}
       >
-        <X size={24} strokeWidth={1.5} />
-      </button>
+        <button
+          type="button"
+          data-ocid="portfolio.cv.close_button"
+          onClick={onClose}
+          aria-label="Close CV overlay"
+          style={{
+            background: "none",
+            border: "none",
+            padding: "0.4rem",
+            cursor: "default",
+            color: "rgba(229,224,216,0.7)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            lineHeight: 0,
+            transition: "color 0.2s ease",
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.color = "#8C3A3A";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.color =
+              "rgba(229,224,216,0.7)";
+          }}
+        >
+          <X size={24} strokeWidth={1.5} />
+        </button>
+      </div>
 
-      {/* iframe */}
-      <iframe
-        src={iframeSrc}
-        title="Curriculum Vitae"
-        style={{
-          width: "100%",
-          height: "100%",
-          border: "none",
-          display: "block",
-        }}
-        allow="fullscreen"
-      />
+      {/* PDF embed or iframe fills remaining space */}
+      {cvPdfData ? (
+        <embed
+          src={cvPdfData}
+          type="application/pdf"
+          title="Curriculum Vitae"
+          style={{
+            flex: 1,
+            width: "100%",
+            border: "none",
+            display: "block",
+          }}
+        />
+      ) : (
+        <iframe
+          src={iframeSrc}
+          title="Curriculum Vitae"
+          style={{
+            flex: 1,
+            width: "100%",
+            border: "none",
+            display: "block",
+          }}
+          allow="fullscreen"
+        />
+      )}
     </motion.div>
   );
 }
@@ -140,20 +163,29 @@ function CVModal({
 function ProfessionalNarrativeCard() {
   const [narrative, setNarrative] = useState<string | null>(null);
   const [cvLink, setCvLink] = useState<string>("");
+  const [cvPdfData, setCvPdfData] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
   const [showCVModal, setShowCVModal] = useState(false);
   const [isCVButtonHovered, setIsCVButtonHovered] = useState(false);
 
   useEffect(() => {
     getBackend()
-      .then((b) => Promise.all([b.getProfessionalNarrative(), b.getCvLink()]))
-      .then(([text, link]) => {
+      .then((b) =>
+        Promise.all([
+          b.getProfessionalNarrative(),
+          b.getCvLink(),
+          b.getCvPdf(),
+        ]),
+      )
+      .then(([text, link, pdf]) => {
         setNarrative(text?.trim() ? text : DEFAULT_NARRATIVE);
         setCvLink(link?.trim() ?? "");
+        setCvPdfData(pdf?.trim() ?? "");
       })
       .catch(() => {
         setNarrative(DEFAULT_NARRATIVE);
         setCvLink("");
+        setCvPdfData("");
       })
       .finally(() => setIsLoading(false));
   }, []);
@@ -255,8 +287,14 @@ function ProfessionalNarrativeCard() {
               type="button"
               data-ocid="portfolio.cv.open_modal_button"
               onClick={() => {
-                if (cvLink) {
+                if (cvPdfData) {
                   setShowCVModal(true);
+                } else if (cvLink) {
+                  if (cvLink.includes("figma.site")) {
+                    window.open(cvLink, "_blank", "noopener,noreferrer");
+                  } else {
+                    setShowCVModal(true);
+                  }
                 }
               }}
               onMouseEnter={() => setIsCVButtonHovered(true)}
@@ -276,12 +314,12 @@ function ProfessionalNarrativeCard() {
                 boxShadow: isCVButtonHovered
                   ? "0 0 12px rgba(229,224,216,0.12)"
                   : "none",
-                opacity: cvLink ? 1 : 0.45,
+                opacity: cvLink || cvPdfData ? 1 : 0.45,
               }}
             >
               Press for detailed CV
             </button>
-            {!cvLink && (
+            {!cvLink && !cvPdfData && (
               <p
                 style={{
                   fontFamily: "Inter, system-ui, sans-serif",
@@ -302,7 +340,11 @@ function ProfessionalNarrativeCard() {
       {/* CV Modal */}
       <AnimatePresence>
         {showCVModal && (
-          <CVModal cvLink={cvLink} onClose={() => setShowCVModal(false)} />
+          <CVModal
+            cvLink={cvLink}
+            cvPdfData={cvPdfData}
+            onClose={() => setShowCVModal(false)}
+          />
         )}
       </AnimatePresence>
     </>
@@ -369,49 +411,57 @@ function PortfolioPDFModal({
         zIndex: 200,
         background: "rgba(0,0,0,0.95)",
         display: "flex",
-        alignItems: "stretch",
-        justifyContent: "stretch",
+        flexDirection: "column",
       }}
     >
-      <button
-        type="button"
-        data-ocid="portfolio.pdf.close_button"
-        onClick={onClose}
-        aria-label="Close PDF overlay"
+      {/* Header bar — close button lives here, never overlapped by embed */}
+      <div
         style={{
-          position: "absolute",
-          top: "1.5rem",
-          right: "1.5rem",
-          zIndex: 210,
-          background: "none",
-          border: "none",
-          padding: "0.4rem",
-          cursor: "default",
-          color: "rgba(229,224,216,0.7)",
+          height: "48px",
+          background: "rgba(0,0,0,0.98)",
           display: "flex",
+          justifyContent: "flex-end",
           alignItems: "center",
-          justifyContent: "center",
-          lineHeight: 0,
-          transition: "color 0.2s ease",
-        }}
-        onMouseEnter={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.color = "#8C3A3A";
-        }}
-        onMouseLeave={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.color =
-            "rgba(229,224,216,0.7)";
+          padding: "0 1.5rem",
+          flexShrink: 0,
         }}
       >
-        <X size={24} strokeWidth={1.5} />
-      </button>
+        <button
+          type="button"
+          data-ocid="portfolio.pdf.close_button"
+          onClick={onClose}
+          aria-label="Close PDF overlay"
+          style={{
+            background: "none",
+            border: "none",
+            padding: "0.4rem",
+            cursor: "default",
+            color: "rgba(229,224,216,0.7)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            lineHeight: 0,
+            transition: "color 0.2s ease",
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.color = "#8C3A3A";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.color =
+              "rgba(229,224,216,0.7)";
+          }}
+        >
+          <X size={24} strokeWidth={1.5} />
+        </button>
+      </div>
 
       <embed
         src={pdfData}
         type="application/pdf"
         title={`${title} — PDF`}
         style={{
+          flex: 1,
           width: "100%",
-          height: "100%",
           border: "none",
           display: "block",
         }}

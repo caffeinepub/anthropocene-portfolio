@@ -22,6 +22,7 @@ import type {
   ResearchItem,
   StudentWorkItem,
 } from "../backend.d";
+import { STEALTH_TRIGGER_EVENT } from "../components/StealthAdminClaim";
 import { useCursor } from "../context/CursorContext";
 import { useActor } from "../hooks/useActor";
 import { useAdminAuth } from "../hooks/useAdminAuth";
@@ -2952,6 +2953,10 @@ export function AdminDashboard() {
               Anthropocene — Control Panel
             </p>
             <h1
+              onDoubleClick={() =>
+                window.dispatchEvent(new Event(STEALTH_TRIGGER_EVENT))
+              }
+              title=""
               style={{
                 fontFamily: '"Playfair Display", Georgia, serif',
                 fontStyle: "italic",
@@ -2961,6 +2966,8 @@ export function AdminDashboard() {
                 margin: 0,
                 letterSpacing: "-0.02em",
                 lineHeight: 1.1,
+                cursor: "default",
+                userSelect: "none",
               }}
             >
               Anthropocene Control Panel

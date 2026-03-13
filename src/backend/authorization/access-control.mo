@@ -1,5 +1,6 @@
 import Map "mo:core/Map";
 import Principal "mo:core/Principal";
+import Runtime "mo:core/Runtime";
 
 module {
   public type UserRole = {
@@ -9,8 +10,6 @@ module {
   };
 
   public type AccessControlState = {
-    // adminAssigned is kept for stable memory compatibility with the previous version.
-    // It is no longer used in any logic — the token alone grants admin access.
     var adminAssigned : Bool;
     userRoles : Map.Map<Principal, UserRole>;
   };
@@ -22,37 +21,35 @@ module {
     };
   };
 
-  // Any principal that provides the correct token is ALWAYS registered as admin.
-  // No one-time gate. Safe to call on every page load and every redeployment.
+  // First principal that calls this function becomes admin, all other principals become users.
   public func initialize(state : AccessControlState, caller : Principal, adminToken : Text, userProvidedToken : Text) {
     if (caller.isAnonymous()) { return };
-    if (userProvidedToken == adminToken) {
-      // Always (re)assign admin — idempotent, safe on every call
-      state.userRoles.add(caller, #admin);
-      state.adminAssigned := true; // keep field in sync (unused but preserved for compat)
-    } else {
-      // Only register as user if not already assigned any role
-      switch (state.userRoles.get(caller)) {
-        case (?_) {}; // already has a role, don't downgrade
-        case (null) {
+    switch (state.userRoles.get(caller)) {
+      case (?_) {};
+      case (null) {
+        if (not state.adminAssigned and userProvidedToken == adminToken) {
+          state.userRoles.add(caller, #admin);
+          state.adminAssigned := true;
+        } else {
           state.userRoles.add(caller, #user);
         };
       };
     };
   };
 
-  // Returns #guest for unknown or anonymous principals — never traps
   public func getUserRole(state : AccessControlState, caller : Principal) : UserRole {
     if (caller.isAnonymous()) { return #guest };
     switch (state.userRoles.get(caller)) {
       case (?role) { role };
-      case (null) { #guest };
+      case (null) {
+        Runtime.trap("User is not registered");
+      };
     };
   };
 
   public func assignRole(state : AccessControlState, caller : Principal, user : Principal, role : UserRole) {
-    if (not isAdmin(state, caller)) {
-      return; // Silently ignore unauthorized role assignments
+    if (not (isAdmin(state, caller))) {
+      Runtime.trap("Unauthorized: Only admins can assign user roles");
     };
     state.userRoles.add(user, role);
   };
