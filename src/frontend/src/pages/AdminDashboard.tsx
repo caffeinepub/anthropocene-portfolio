@@ -27,6 +27,7 @@ import { useCursor } from "../context/CursorContext";
 import { useActor } from "../hooks/useActor";
 import { useAdminAuth } from "../hooks/useAdminAuth";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
+import { uploadToBlobStorage } from "../lib/blob-storage";
 
 // ─── Actor retry utilities ─────────────────────────────────────────────────────
 
@@ -329,22 +330,32 @@ function AddLectureModal({
   const [protoUrl, setProtoUrl] = useState("");
   const [desc, setDesc] = useState("");
   const [duration, setDuration] = useState("");
-  const [pdfBase64, setPdfBase64] = useState("");
+  const [pdfUrl, setPdfUrl] = useState("");
   const [pdfFileName, setPdfFileName] = useState("");
+  const [pdfUploadProgress, setPdfUploadProgress] = useState<number | null>(
+    null,
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
 
-  const handlePdfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePdfChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setPdfFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const result = ev.target?.result;
-      if (typeof result === "string") setPdfBase64(result);
-    };
-    reader.readAsDataURL(file);
+    setPdfUploadProgress(0);
+    setError(null);
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const url = await uploadToBlobStorage(bytes, (pct) =>
+        setPdfUploadProgress(pct),
+      );
+      setPdfUrl(url);
+      setPdfUploadProgress(null);
+    } catch {
+      setError("PDF upload failed. Please try again.");
+      setPdfUploadProgress(null);
+    }
   };
 
   const handleSubmit = async () => {
@@ -364,7 +375,7 @@ function AddLectureModal({
         protoUrl.trim(),
         desc.trim(),
         duration.trim(),
-        pdfBase64,
+        pdfUrl,
       );
       onSuccess();
       onClose();
@@ -460,7 +471,9 @@ function AddLectureModal({
                 whiteSpace: "nowrap",
               }}
             >
-              {pdfFileName || "Choose PDF..."}
+              {pdfUploadProgress !== null
+                ? `Uploading… ${Math.round(pdfUploadProgress)}%`
+                : pdfFileName || "Choose PDF..."}
             </span>
           </button>
         </div>
@@ -497,40 +510,54 @@ function AddStudentWorkModal({
   const [description, setDescription] = useState("");
   const [photoDataUrl, setPhotoDataUrl] = useState<string>("");
   const [photoFileName, setPhotoFileName] = useState<string>("");
-  const [pdfBase64, setPdfBase64] = useState("");
+  const [photoUploadProgress, setPhotoUploadProgress] = useState<number | null>(
+    null,
+  );
+  const [pdfUrl, setPdfUrl] = useState("");
   const [pdfFileName, setPdfFileName] = useState("");
+  const [pdfUploadProgress, setPdfUploadProgress] = useState<number | null>(
+    null,
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
 
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > MAX_FILE_SIZE) {
-      setError("Photo is too large (max 2 MB). Please compress it first.");
-      return;
-    }
     setError(null);
     setPhotoFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const result = ev.target?.result;
-      if (typeof result === "string") setPhotoDataUrl(result);
-    };
-    reader.readAsDataURL(file);
+    setPhotoUploadProgress(0);
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const url = await uploadToBlobStorage(bytes, (pct) =>
+        setPhotoUploadProgress(pct),
+      );
+      setPhotoDataUrl(url);
+      setPhotoUploadProgress(null);
+    } catch {
+      setError("Photo upload failed. Please try again.");
+      setPhotoUploadProgress(null);
+    }
   };
 
-  const handlePdfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePdfChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setPdfFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const result = ev.target?.result;
-      if (typeof result === "string") setPdfBase64(result);
-    };
-    reader.readAsDataURL(file);
+    setPdfUploadProgress(0);
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const url = await uploadToBlobStorage(bytes, (pct) =>
+        setPdfUploadProgress(pct),
+      );
+      setPdfUrl(url);
+      setPdfUploadProgress(null);
+    } catch {
+      setError("PDF upload failed. Please try again.");
+      setPdfUploadProgress(null);
+    }
   };
 
   const handleSubmit = async () => {
@@ -549,7 +576,7 @@ function AddStudentWorkModal({
         studentName.trim(),
         description.trim(),
         photoDataUrl,
-        pdfBase64,
+        pdfUrl,
       );
       onSuccess();
       onClose();
@@ -643,7 +670,9 @@ function AddStudentWorkModal({
                 whiteSpace: "nowrap",
               }}
             >
-              {photoFileName || "Choose photo..."}
+              {photoUploadProgress !== null
+                ? `Uploading… ${Math.round(photoUploadProgress)}%`
+                : photoFileName || "Choose photo..."}
             </span>
           </button>
           {/* Photo thumbnail preview */}
@@ -743,7 +772,9 @@ function AddStudentWorkModal({
                 whiteSpace: "nowrap",
               }}
             >
-              {pdfFileName || "Choose PDF..."}
+              {pdfUploadProgress !== null
+                ? `Uploading… ${Math.round(pdfUploadProgress)}%`
+                : pdfFileName || "Choose PDF..."}
             </span>
           </button>
         </div>
@@ -760,8 +791,6 @@ function AddStudentWorkModal({
 }
 
 // ─── Modal: Add Art Item ───────────────────────────────────────────────────────
-
-const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
 
 function AddArtItemModal({
   onClose,
@@ -781,30 +810,30 @@ function AddArtItemModal({
   const [title, setTitle] = useState("");
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
   const [imageFileName, setImageFileName] = useState<string>("");
+  const [imageUploadProgress, setImageUploadProgress] = useState<number | null>(
+    null,
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    if (file.size > MAX_FILE_SIZE) {
-      setError("Image is too large (max 2 MB). Please compress it first.");
-      return;
-    }
-
     setError(null);
     setImageFileName(file.name);
-
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const result = ev.target?.result;
-      if (typeof result === "string") {
-        setImageDataUrl(result);
-      }
-    };
-    reader.readAsDataURL(file);
+    setImageUploadProgress(0);
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const url = await uploadToBlobStorage(bytes, (pct) =>
+        setImageUploadProgress(pct),
+      );
+      setImageDataUrl(url);
+      setImageUploadProgress(null);
+    } catch {
+      setError("Image upload failed. Please try again.");
+      setImageUploadProgress(null);
+    }
   };
 
   const handleSubmit = async () => {
@@ -909,7 +938,9 @@ function AddArtItemModal({
                 whiteSpace: "nowrap",
               }}
             >
-              {imageFileName || "Choose image..."}
+              {imageUploadProgress !== null
+                ? `Uploading… ${Math.round(imageUploadProgress)}%`
+                : imageFileName || "Choose image..."}
             </span>
           </button>
         </div>
@@ -1009,41 +1040,55 @@ function AddDesignPortfolioModal({
   const [figmaUrl, setFigmaUrl] = useState("");
   const [imageDataUrl, setImageDataUrl] = useState<string>("");
   const [imageFileName, setImageFileName] = useState<string>("");
+  const [imageUploadProgress, setImageUploadProgress] = useState<number | null>(
+    null,
+  );
   const [videoUrl, setVideoUrl] = useState("");
-  const [pdfBase64, setPdfBase64] = useState("");
+  const [pdfUrl, setPdfUrl] = useState("");
   const [pdfFileName, setPdfFileName] = useState("");
+  const [pdfUploadProgress, setPdfUploadProgress] = useState<number | null>(
+    null,
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > MAX_FILE_SIZE) {
-      setError("Image is too large (max 2 MB). Please compress it first.");
-      return;
-    }
     setError(null);
     setImageFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const result = ev.target?.result;
-      if (typeof result === "string") setImageDataUrl(result);
-    };
-    reader.readAsDataURL(file);
+    setImageUploadProgress(0);
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const url = await uploadToBlobStorage(bytes, (pct) =>
+        setImageUploadProgress(pct),
+      );
+      setImageDataUrl(url);
+      setImageUploadProgress(null);
+    } catch {
+      setError("Image upload failed. Please try again.");
+      setImageUploadProgress(null);
+    }
   };
 
-  const handlePdfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePdfChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setPdfFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const result = ev.target?.result;
-      if (typeof result === "string") setPdfBase64(result);
-    };
-    reader.readAsDataURL(file);
+    setPdfUploadProgress(0);
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const url = await uploadToBlobStorage(bytes, (pct) =>
+        setPdfUploadProgress(pct),
+      );
+      setPdfUrl(url);
+      setPdfUploadProgress(null);
+    } catch {
+      setError("PDF upload failed. Please try again.");
+      setPdfUploadProgress(null);
+    }
   };
 
   const handleSubmit = async () => {
@@ -1071,7 +1116,7 @@ function AddDesignPortfolioModal({
         imageDataUrl,
         videoUrl.trim(),
         description.trim(),
-        pdfBase64,
+        pdfUrl,
       );
       onSuccess();
       onClose();
@@ -1203,7 +1248,9 @@ function AddDesignPortfolioModal({
                 whiteSpace: "nowrap",
               }}
             >
-              {imageFileName || "Choose image..."}
+              {imageUploadProgress !== null
+                ? `Uploading… ${Math.round(imageUploadProgress)}%`
+                : imageFileName || "Choose image..."}
             </span>
           </button>
           {imageDataUrl && (
@@ -1310,7 +1357,9 @@ function AddDesignPortfolioModal({
                 whiteSpace: "nowrap",
               }}
             >
-              {pdfFileName || "Choose PDF..."}
+              {pdfUploadProgress !== null
+                ? `Uploading… ${Math.round(pdfUploadProgress)}%`
+                : pdfFileName || "Choose PDF..."}
             </span>
           </button>
         </div>
@@ -1347,30 +1396,30 @@ function AddResearchItemModal({
   const [desc, setDesc] = useState("");
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
   const [imageFileName, setImageFileName] = useState<string>("");
+  const [imageUploadProgress, setImageUploadProgress] = useState<number | null>(
+    null,
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    if (file.size > MAX_FILE_SIZE) {
-      setError("Image is too large (max 2 MB). Please compress it first.");
-      return;
-    }
-
     setError(null);
     setImageFileName(file.name);
-
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const result = ev.target?.result;
-      if (typeof result === "string") {
-        setImageDataUrl(result);
-      }
-    };
-    reader.readAsDataURL(file);
+    setImageUploadProgress(0);
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const url = await uploadToBlobStorage(bytes, (pct) =>
+        setImageUploadProgress(pct),
+      );
+      setImageDataUrl(url);
+      setImageUploadProgress(null);
+    } catch {
+      setError("Image upload failed. Please try again.");
+      setImageUploadProgress(null);
+    }
   };
 
   const handleSubmit = async () => {
@@ -1474,7 +1523,9 @@ function AddResearchItemModal({
                 whiteSpace: "nowrap",
               }}
             >
-              {imageFileName || "Choose image..."}
+              {imageUploadProgress !== null
+                ? `Uploading… ${Math.round(imageUploadProgress)}%`
+                : imageFileName || "Choose image..."}
             </span>
           </button>
         </div>
@@ -2146,8 +2197,11 @@ export function AdminDashboard() {
   const [cvLinkError, setCvLinkError] = useState<string | null>(null);
 
   // CV PDF state (design-portfolio section)
-  const [cvPdfBase64, setCvPdfBase64] = useState("");
+  const [cvPdfUrl, setCvPdfUrl] = useState("");
   const [cvPdfFileName, setCvPdfFileName] = useState("");
+  const [cvPdfUploadProgress, setCvPdfUploadProgress] = useState<number | null>(
+    null,
+  );
   const [cvPdfAlreadySet, setCvPdfAlreadySet] = useState(false);
   const [cvPdfSaving, setCvPdfSaving] = useState(false);
   const [cvPdfSaved, setCvPdfSaved] = useState(false);
@@ -2174,6 +2228,8 @@ export function AdminDashboard() {
   // Force reconnect: directly opens a fresh II popup.
   // We do NOT call iiClear() first — that triggers a full authClient re-init loop
   // which sets isIIInitializing=true for several seconds and disables the Add button.
+  const [principalCopied, setPrincipalCopied] = useState(false);
+
   const forceReconnect = useCallback(() => {
     iiLogin();
   }, [iiLogin]);
@@ -2426,7 +2482,7 @@ export function AdminDashboard() {
       forceReconnect();
       return;
     }
-    if (!cvPdfBase64) {
+    if (!cvPdfUrl) {
       setCvPdfError("Please select a PDF file first.");
       return;
     }
@@ -2434,7 +2490,7 @@ export function AdminDashboard() {
     setCvPdfError(null);
     setCvPdfSaved(false);
     try {
-      const pdfData = cvPdfBase64;
+      const pdfData = cvPdfUrl;
       await withActorRetry(
         () => actor,
         (a) => a.setCvPdf(pdfData),
@@ -2798,6 +2854,94 @@ export function AdminDashboard() {
             >
               Internet Identity
             </p>
+
+            {/* Identity Principal display — visible when logged in */}
+            {identity && (
+              <div
+                style={{
+                  marginBottom: "0.5rem",
+                  background: "rgba(229,224,216,0.03)",
+                  border: "1px solid rgba(229,224,216,0.07)",
+                  padding: "0.55rem 0.65rem",
+                }}
+              >
+                <p
+                  style={{
+                    fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                    fontSize: "6px",
+                    letterSpacing: "0.2em",
+                    textTransform: "uppercase",
+                    color: "rgba(229,224,216,0.25)",
+                    margin: "0 0 0.35rem",
+                  }}
+                >
+                  Your Identity Principal
+                </p>
+                <p
+                  data-ocid="admin.identity.principal"
+                  style={{
+                    fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                    fontSize: "7px",
+                    color: "rgba(229,224,216,0.45)",
+                    margin: "0 0 0.45rem",
+                    wordBreak: "break-all",
+                    lineHeight: 1.6,
+                    userSelect: "text",
+                    cursor: "text",
+                  }}
+                >
+                  {identity.getPrincipal().toText()}
+                </p>
+                <button
+                  type="button"
+                  data-ocid="admin.identity.copy_principal_button"
+                  onClick={() => {
+                    navigator.clipboard
+                      .writeText(identity.getPrincipal().toText())
+                      .then(() => {
+                        setPrincipalCopied(true);
+                        setTimeout(() => setPrincipalCopied(false), 1800);
+                      })
+                      .catch(() => {});
+                  }}
+                  style={{
+                    background: "none",
+                    border: "1px solid rgba(229,224,216,0.1)",
+                    padding: "0.25rem 0.5rem",
+                    fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                    fontSize: "7px",
+                    letterSpacing: "0.15em",
+                    textTransform: "uppercase",
+                    color: principalCopied
+                      ? "rgba(140,200,140,0.7)"
+                      : "rgba(229,224,216,0.35)",
+                    cursor: "default",
+                    transition: "color 0.2s, border-color 0.2s",
+                    borderColor: principalCopied
+                      ? "rgba(140,200,140,0.3)"
+                      : "rgba(229,224,216,0.1)",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!principalCopied) {
+                      (e.currentTarget as HTMLButtonElement).style.color =
+                        "rgba(229,224,216,0.6)";
+                      (e.currentTarget as HTMLButtonElement).style.borderColor =
+                        "rgba(229,224,216,0.2)";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!principalCopied) {
+                      (e.currentTarget as HTMLButtonElement).style.color =
+                        "rgba(229,224,216,0.35)";
+                      (e.currentTarget as HTMLButtonElement).style.borderColor =
+                        "rgba(229,224,216,0.1)";
+                    }
+                  }}
+                >
+                  {principalCopied ? "Copied!" : "Copy"}
+                </button>
+              </div>
+            )}
 
             {/* Reconnect Identity button — always visible */}
             <button
@@ -3396,17 +3540,25 @@ export function AdminDashboard() {
                       type="file"
                       accept="application/pdf"
                       data-ocid="admin.cv.upload_button"
-                      onChange={(e) => {
+                      onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (!file) return;
                         setCvPdfFileName(file.name);
-                        const reader = new FileReader();
-                        reader.onload = (ev) => {
-                          const result = ev.target?.result;
-                          if (typeof result === "string")
-                            setCvPdfBase64(result);
-                        };
-                        reader.readAsDataURL(file);
+                        setCvPdfUploadProgress(0);
+                        setCvPdfError(null);
+                        try {
+                          const bytes = new Uint8Array(
+                            await file.arrayBuffer(),
+                          );
+                          const url = await uploadToBlobStorage(bytes, (pct) =>
+                            setCvPdfUploadProgress(pct),
+                          );
+                          setCvPdfUrl(url);
+                          setCvPdfUploadProgress(null);
+                        } catch {
+                          setCvPdfError("PDF upload failed. Please try again.");
+                          setCvPdfUploadProgress(null);
+                        }
                       }}
                       style={{ display: "none" }}
                     />
@@ -3466,7 +3618,9 @@ export function AdminDashboard() {
                       type="button"
                       data-ocid="admin.cv.pdf.save_button"
                       onClick={handleSaveCvPdf}
-                      disabled={cvPdfSaving || !cvPdfBase64}
+                      disabled={
+                        cvPdfSaving || !cvPdfUrl || cvPdfUploadProgress !== null
+                      }
                       style={{
                         background: "#8C3A3A",
                         border: "none",
@@ -3479,12 +3633,21 @@ export function AdminDashboard() {
                         color: "#E5E0D8",
                         cursor: "default",
                         transition: "background 0.2s ease",
-                        opacity: cvPdfSaving || !cvPdfBase64 ? 0.5 : 1,
+                        opacity:
+                          cvPdfSaving ||
+                          !cvPdfUrl ||
+                          cvPdfUploadProgress !== null
+                            ? 0.5
+                            : 1,
                         flexShrink: 0,
                         whiteSpace: "nowrap",
                       }}
                       onMouseEnter={(e) => {
-                        if (!cvPdfSaving && cvPdfBase64) {
+                        if (
+                          !cvPdfSaving &&
+                          cvPdfUrl &&
+                          cvPdfUploadProgress === null
+                        ) {
                           (
                             e.currentTarget as HTMLButtonElement
                           ).style.background = "#a84444";
@@ -3496,7 +3659,11 @@ export function AdminDashboard() {
                         ).style.background = "#8C3A3A";
                       }}
                     >
-                      {cvPdfSaving ? "Saving..." : "Save CV PDF"}
+                      {cvPdfUploadProgress !== null
+                        ? `Uploading... ${Math.round(cvPdfUploadProgress)}%`
+                        : cvPdfSaving
+                          ? "Saving..."
+                          : "Save CV PDF"}
                     </button>
                   </div>
                   {cvPdfSaved && (

@@ -754,7 +754,7 @@ export function FacultyPortfolio() {
                 margin: 0,
               }}
             >
-              No portfolio items published yet
+              Portfolio entries coming soon.
             </p>
           </motion.div>
         )}

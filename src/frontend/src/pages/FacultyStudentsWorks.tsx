@@ -541,7 +541,7 @@ export function FacultyStudentsWorks() {
                 margin: 0,
               }}
             >
-              No student works published yet
+              Student works will appear here soon.
             </p>
           </motion.div>
         )}

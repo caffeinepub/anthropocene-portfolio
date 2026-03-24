@@ -361,7 +361,7 @@ function EmptyGalleryPlaceholder({ index }: { index: number }) {
           margin: 0,
         }}
       >
-        Upload artworks from admin dashboard
+        New works arriving soon.
       </motion.p>
     </section>
   );
@@ -494,7 +494,7 @@ export function ArtPractice() {
     if (!audio) return;
 
     // Gallery volume — atmospheric but audible
-    audio.volume = 0.09;
+    audio.volume = 0.045;
 
     const tryPlay = () => {
       if (hasStartedRef.current) return;

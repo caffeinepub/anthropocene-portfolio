@@ -738,7 +738,7 @@ export function Research() {
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    audio.volume = 0.5;
+    audio.volume = 0.2;
     audio.play().catch(() => {
       // Autoplay blocked — will retry on user interaction (Enter Canvas click)
     });

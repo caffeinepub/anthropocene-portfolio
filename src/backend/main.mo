@@ -2,11 +2,13 @@ import Map "mo:core/Map";
 import Runtime "mo:core/Runtime";
 import Principal "mo:core/Principal";
 import MixinAuthorization "authorization/MixinAuthorization";
+import BlobStorageMixin "blob-storage/Mixin";
 import AccessControl "authorization/access-control";
 
 actor {
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
+  include BlobStorageMixin();
 
   public type UserProfile = {
     name : Text;

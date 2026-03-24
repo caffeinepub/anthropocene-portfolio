@@ -857,7 +857,7 @@ export function FacultyLectures() {
         setLectures(mapped);
       })
       .catch(() => {
-        // Fallback to empty — UI shows "No lectures published yet"
+        // Fallback to empty — UI shows "Lectures will be announced shortly."
         setLectures([]);
       })
       .finally(() => {
@@ -988,7 +988,7 @@ export function FacultyLectures() {
                 margin: 0,
               }}
             >
-              No lectures published yet
+              Lectures will be announced shortly.
             </p>
           </motion.div>
         )}
