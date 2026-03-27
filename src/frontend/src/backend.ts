@@ -161,11 +161,11 @@ export interface backendInterface {
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     healthCheck(): Promise<boolean>;
     isCallerAdmin(): Promise<boolean>;
-    listAllArtItems(): Promise<Array<ArtPortfolioItem>>;
+    getArtItems(offset: bigint, limit: bigint): Promise<Array<ArtPortfolioItem>>;
+    getLectures(offset: bigint, limit: bigint): Promise<Array<LectureItem>>;
+    getResearchItems(offset: bigint, limit: bigint): Promise<Array<ResearchItem>>;
+    getStudentWorks(offset: bigint, limit: bigint): Promise<Array<StudentWorkItem>>;
     listAllDesignPortfolio(): Promise<Array<DesignPortfolioItem>>;
-    listAllLectures(): Promise<Array<LectureItem>>;
-    listAllResearchItems(): Promise<Array<ResearchItem>>;
-    listAllStudentWorks(): Promise<Array<StudentWorkItem>>;
     listLiveArtItems(): Promise<Array<ArtPortfolioItem>>;
     listLiveDesignPortfolio(): Promise<Array<DesignPortfolioItem>>;
     listLiveLectures(): Promise<Array<LectureItem>>;
@@ -464,17 +464,17 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async listAllArtItems(): Promise<Array<ArtPortfolioItem>> {
+    async getArtItems(offset: bigint, limit: bigint): Promise<Array<ArtPortfolioItem>> {
         if (this.processError) {
             try {
-                const result = await this.actor.listAllArtItems();
+                const result = await this.actor.getArtItems(offset, limit);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.listAllArtItems();
+            const result = await this.actor.getArtItems(offset, limit);
             return result;
         }
     }
@@ -492,45 +492,45 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async listAllLectures(): Promise<Array<LectureItem>> {
+    async getLectures(offset: bigint, limit: bigint): Promise<Array<LectureItem>> {
         if (this.processError) {
             try {
-                const result = await this.actor.listAllLectures();
+                const result = await this.actor.getLectures(offset, limit);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.listAllLectures();
+            const result = await this.actor.getLectures(offset, limit);
             return result;
         }
     }
-    async listAllResearchItems(): Promise<Array<ResearchItem>> {
+    async getResearchItems(offset: bigint, limit: bigint): Promise<Array<ResearchItem>> {
         if (this.processError) {
             try {
-                const result = await this.actor.listAllResearchItems();
+                const result = await this.actor.getResearchItems(offset, limit);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.listAllResearchItems();
+            const result = await this.actor.getResearchItems(offset, limit);
             return result;
         }
     }
-    async listAllStudentWorks(): Promise<Array<StudentWorkItem>> {
+    async getStudentWorks(offset: bigint, limit: bigint): Promise<Array<StudentWorkItem>> {
         if (this.processError) {
             try {
-                const result = await this.actor.listAllStudentWorks();
+                const result = await this.actor.getStudentWorks(offset, limit);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.listAllStudentWorks();
+            const result = await this.actor.getStudentWorks(offset, limit);
             return result;
         }
     }

@@ -1,5 +1,6 @@
 import Map "mo:core/Map";
 import Runtime "mo:core/Runtime";
+import Array "mo:core/Array";
 import Principal "mo:core/Principal";
 import MixinAuthorization "authorization/MixinAuthorization";
 import BlobStorageMixin "blob-storage/Mixin";
@@ -96,12 +97,19 @@ actor {
   var nextDesignPortfolioId = 1;
   var nextResearchItemId = 1;
 
-  // ─── HELPER ──────────────────────────────────────────────────────────────────
+  // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
   func requireAdmin(caller : Principal) {
     if (not AccessControl.isAdmin(accessControlState, caller)) {
       Runtime.trap("Unauthorized");
     };
+  };
+
+  func sliceArray<T>(arr : [T], offset : Nat, limit : Nat) : [T] {
+    let size = arr.size();
+    if (offset >= size) { return [] };
+    let end = if (offset + limit > size) { size } else { offset + limit };
+    Array.tabulate<T>(end - offset, func(i) { arr[offset + i] });
   };
 
   // ─── PROFESSIONAL NARRATIVE ──────────────────────────────────────────────────
@@ -167,9 +175,8 @@ actor {
     };
   };
 
-  // Admin list — now fully public, no auth required to read
-  public query func listAllLectures() : async [LectureItem] {
-    lectures.values().toArray();
+  public query func getLectures(offset : Nat, limit : Nat) : async [LectureItem] {
+    sliceArray(lectures.values().toArray(), offset, limit);
   };
 
   public query func listLiveLectures() : async [LectureItem] {
@@ -207,8 +214,8 @@ actor {
     };
   };
 
-  public query func listAllStudentWorks() : async [StudentWorkItem] {
-    studentWorks.values().toArray();
+  public query func getStudentWorks(offset : Nat, limit : Nat) : async [StudentWorkItem] {
+    sliceArray(studentWorks.values().toArray(), offset, limit);
   };
 
   public query func listLiveStudentWorks() : async [StudentWorkItem] {
@@ -241,8 +248,8 @@ actor {
     };
   };
 
-  public query func listAllArtItems() : async [ArtPortfolioItem] {
-    artPortfolio.values().toArray();
+  public query func getArtItems(offset : Nat, limit : Nat) : async [ArtPortfolioItem] {
+    sliceArray(artPortfolio.values().toArray(), offset, limit);
   };
 
   public query func listLiveArtItems() : async [ArtPortfolioItem] {
@@ -323,8 +330,8 @@ actor {
     };
   };
 
-  public query func listAllResearchItems() : async [ResearchItem] {
-    researchItems.values().toArray();
+  public query func getResearchItems(offset : Nat, limit : Nat) : async [ResearchItem] {
+    sliceArray(researchItems.values().toArray(), offset, limit);
   };
 
   public query func listLiveResearchItems() : async [ResearchItem] {

@@ -2269,19 +2269,19 @@ export function AdminDashboard() {
         if (section === "lectures") {
           const data = await withActorRetry(
             () => actor,
-            (a) => a.listAllLectures(),
+            (a) => a.getLectures(0n, 500n),
           );
           setLectures(data);
         } else if (section === "students-works") {
           const data = await withActorRetry(
             () => actor,
-            (a) => a.listAllStudentWorks(),
+            (a) => a.getStudentWorks(0n, 500n),
           );
           setStudentWorks(data);
         } else if (section === "art-portfolio") {
           const data = await withActorRetry(
             () => actor,
-            (a) => a.listAllArtItems(),
+            (a) => a.getArtItems(0n, 500n),
           );
           setArtItems(data);
         } else if (section === "design-portfolio") {
@@ -2300,7 +2300,7 @@ export function AdminDashboard() {
         } else if (section === "research") {
           const data = await withActorRetry(
             () => actor,
-            (a) => a.listAllResearchItems(),
+            (a) => a.getResearchItems(0n, 500n),
           );
           setResearchItems(data);
         } else if (section === "cv") {
@@ -2373,42 +2373,42 @@ export function AdminDashboard() {
   const handleToggleLecture = async (id: bigint, newLive: boolean) => {
     if (!actor) return;
     await actor.setLectureLive(id, newLive);
-    const data = await actor.listAllLectures();
+    const data = await actor.getLectures(0n, 500n);
     setLectures(data);
   };
 
   const handleDeleteLecture = async (id: bigint) => {
     if (!actor) return;
     await actor.deleteLecture(id);
-    const data = await actor.listAllLectures();
+    const data = await actor.getLectures(0n, 500n);
     setLectures(data);
   };
 
   const handleToggleStudentWork = async (id: bigint, newLive: boolean) => {
     if (!actor) return;
     await actor.setStudentWorkLive(id, newLive);
-    const data = await actor.listAllStudentWorks();
+    const data = await actor.getStudentWorks(0n, 500n);
     setStudentWorks(data);
   };
 
   const handleDeleteStudentWork = async (id: bigint) => {
     if (!actor) return;
     await actor.deleteStudentWork(id);
-    const data = await actor.listAllStudentWorks();
+    const data = await actor.getStudentWorks(0n, 500n);
     setStudentWorks(data);
   };
 
   const handleToggleArtItem = async (id: bigint, newLive: boolean) => {
     if (!actor) return;
     await actor.setArtItemLive(id, newLive);
-    const data = await actor.listAllArtItems();
+    const data = await actor.getArtItems(0n, 500n);
     setArtItems(data);
   };
 
   const handleDeleteArtItem = async (id: bigint) => {
     if (!actor) return;
     await actor.deleteArtItem(id);
-    const data = await actor.listAllArtItems();
+    const data = await actor.getArtItems(0n, 500n);
     setArtItems(data);
   };
 
@@ -2429,14 +2429,14 @@ export function AdminDashboard() {
   const handleToggleResearchItem = async (id: bigint, newLive: boolean) => {
     if (!actor) return;
     await actor.setResearchItemLive(id, newLive);
-    const data = await actor.listAllResearchItems();
+    const data = await actor.getResearchItems(0n, 500n);
     setResearchItems(data);
   };
 
   const handleDeleteResearchItem = async (id: bigint) => {
     if (!actor) return;
     await actor.deleteResearchItem(id);
-    const data = await actor.listAllResearchItems();
+    const data = await actor.getResearchItems(0n, 500n);
     setResearchItems(data);
   };
 
