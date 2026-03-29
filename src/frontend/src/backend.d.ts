@@ -70,6 +70,11 @@ export interface backendInterface {
     deleteLecture(id: bigint): Promise<boolean>;
     deleteResearchItem(id: bigint): Promise<boolean>;
     deleteStudentWork(id: bigint): Promise<boolean>;
+    clearAllArtItems(): Promise<void>;
+    clearAllDesignPortfolio(): Promise<void>;
+    clearAllLectures(): Promise<void>;
+    clearAllResearchItems(): Promise<void>;
+    clearAllStudentWorks(): Promise<void>;
     getArtItems(offset: bigint, limit: bigint): Promise<Array<ArtPortfolioItem>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;

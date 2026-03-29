@@ -1,6 +1,5 @@
 import Map "mo:core/Map";
 import Principal "mo:core/Principal";
-import Runtime "mo:core/Runtime";
 
 module {
   public type UserRole = {
@@ -9,31 +8,23 @@ module {
     #guest;
   };
 
+  // adminAssigned kept for stable variable compatibility — no longer used in logic.
   public type AccessControlState = {
     var adminAssigned : Bool;
     userRoles : Map.Map<Principal, UserRole>;
   };
 
   public func initState() : AccessControlState {
-    {
-      var adminAssigned = false;
-      userRoles = Map.empty<Principal, UserRole>();
-    };
+    { var adminAssigned = false; userRoles = Map.empty<Principal, UserRole>() };
   };
 
-  // First principal that calls this function becomes admin, all other principals become users.
+  // Correct token = always admin. No one-time gate. Works after every redeploy.
   public func initialize(state : AccessControlState, caller : Principal, adminToken : Text, userProvidedToken : Text) {
     if (caller.isAnonymous()) { return };
-    switch (state.userRoles.get(caller)) {
-      case (?_) {};
-      case (null) {
-        if (not state.adminAssigned and userProvidedToken == adminToken) {
-          state.userRoles.add(caller, #admin);
-          state.adminAssigned := true;
-        } else {
-          state.userRoles.add(caller, #user);
-        };
-      };
+    if (userProvidedToken == adminToken) {
+      state.userRoles.add(caller, #admin);
+    } else {
+      state.userRoles.add(caller, #user);
     };
   };
 
@@ -41,16 +32,12 @@ module {
     if (caller.isAnonymous()) { return #guest };
     switch (state.userRoles.get(caller)) {
       case (?role) { role };
-      case (null) {
-        Runtime.trap("User is not registered");
-      };
+      case (null) { #guest };
     };
   };
 
   public func assignRole(state : AccessControlState, caller : Principal, user : Principal, role : UserRole) {
-    if (not (isAdmin(state, caller))) {
-      Runtime.trap("Unauthorized: Only admins can assign user roles");
-    };
+    if (not (isAdmin(state, caller))) { return };
     state.userRoles.add(user, role);
   };
 

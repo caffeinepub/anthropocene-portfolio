@@ -21,7 +21,7 @@ actor {
     userProfiles.get(caller);
   };
 
-  public query ({ caller }) func getUserProfile(user : Principal) : async ?UserProfile {
+  public query func getUserProfile(user : Principal) : async ?UserProfile {
     userProfiles.get(user);
   };
 
@@ -112,6 +112,26 @@ actor {
     Array.tabulate<T>(end - offset, func(i) { arr[offset + i] });
   };
 
+  // Strip base64 data URIs — replace any field starting with "data:" with ""
+  // so old base64-encoded content never inflates the response past the 3MB limit
+  func stripBase64(s : Text) : Text {
+    if (s.size() > 5) {
+      let prefix = s.chars();
+      var i = 0;
+      var matched = true;
+      let check = "data:";
+      for (c in check.chars()) {
+        switch (prefix.next()) {
+          case (?ch) { if (ch != c) { matched := false } };
+          case null { matched := false };
+        };
+        i += 1;
+      };
+      if (matched) { return "" };
+    };
+    s;
+  };
+
   // ─── PROFESSIONAL NARRATIVE ──────────────────────────────────────────────────
 
   public query func getProfessionalNarrative() : async Text {
@@ -175,12 +195,24 @@ actor {
     };
   };
 
+  public shared ({ caller }) func clearAllLectures() : async () {
+    requireAdmin(caller);
+    lectures.clear();
+  };
+
   public query func getLectures(offset : Nat, limit : Nat) : async [LectureItem] {
-    sliceArray(lectures.values().toArray(), offset, limit);
+    let all = lectures.values().toArray();
+    let stripped = Array.tabulate(all.size(), func(i) {
+      { all[i] with pdfData = stripBase64(all[i].pdfData) }
+    });
+    sliceArray(stripped, offset, limit);
   };
 
   public query func listLiveLectures() : async [LectureItem] {
-    lectures.values().toArray().filter(func(l) { l.isLive });
+    let all = lectures.values().toArray().filter(func(l) { l.isLive });
+    Array.tabulate(all.size(), func(i) {
+      { all[i] with pdfData = stripBase64(all[i].pdfData) }
+    });
   };
 
   // ─── STUDENT WORKS ───────────────────────────────────────────────────────────
@@ -214,12 +246,24 @@ actor {
     };
   };
 
+  public shared ({ caller }) func clearAllStudentWorks() : async () {
+    requireAdmin(caller);
+    studentWorks.clear();
+  };
+
   public query func getStudentWorks(offset : Nat, limit : Nat) : async [StudentWorkItem] {
-    sliceArray(studentWorks.values().toArray(), offset, limit);
+    let all = studentWorks.values().toArray();
+    let stripped = Array.tabulate(all.size(), func(i) {
+      { all[i] with photoData = stripBase64(all[i].photoData); pdfData = stripBase64(all[i].pdfData) }
+    });
+    sliceArray(stripped, offset, limit);
   };
 
   public query func listLiveStudentWorks() : async [StudentWorkItem] {
-    studentWorks.values().toArray().filter(func(w) { w.isLive });
+    let all = studentWorks.values().toArray().filter(func(w) { w.isLive });
+    Array.tabulate(all.size(), func(i) {
+      { all[i] with photoData = stripBase64(all[i].photoData); pdfData = stripBase64(all[i].pdfData) }
+    });
   };
 
   // ─── ART PORTFOLIO ───────────────────────────────────────────────────────────
@@ -248,12 +292,24 @@ actor {
     };
   };
 
+  public shared ({ caller }) func clearAllArtItems() : async () {
+    requireAdmin(caller);
+    artPortfolio.clear();
+  };
+
   public query func getArtItems(offset : Nat, limit : Nat) : async [ArtPortfolioItem] {
-    sliceArray(artPortfolio.values().toArray(), offset, limit);
+    let all = artPortfolio.values().toArray();
+    let stripped = Array.tabulate(all.size(), func(i) {
+      { all[i] with imagePath = stripBase64(all[i].imagePath) }
+    });
+    sliceArray(stripped, offset, limit);
   };
 
   public query func listLiveArtItems() : async [ArtPortfolioItem] {
-    artPortfolio.values().toArray().filter(func(a) { a.isLive });
+    let all = artPortfolio.values().toArray().filter(func(a) { a.isLive });
+    Array.tabulate(all.size(), func(i) {
+      { all[i] with imagePath = stripBase64(all[i].imagePath) }
+    });
   };
 
   // ─── DESIGN PORTFOLIO ────────────────────────────────────────────────────────
@@ -292,12 +348,23 @@ actor {
     };
   };
 
+  public shared ({ caller }) func clearAllDesignPortfolio() : async () {
+    requireAdmin(caller);
+    designPortfolio.clear();
+  };
+
   public query func listAllDesignPortfolio() : async [DesignPortfolioItem] {
-    designPortfolio.values().toArray();
+    let all = designPortfolio.values().toArray();
+    Array.tabulate(all.size(), func(i) {
+      { all[i] with imageData = stripBase64(all[i].imageData); pdfData = stripBase64(all[i].pdfData) }
+    });
   };
 
   public query func listLiveDesignPortfolio() : async [DesignPortfolioItem] {
-    designPortfolio.values().toArray().filter(func(d) { d.isLive });
+    let all = designPortfolio.values().toArray().filter(func(d) { d.isLive });
+    Array.tabulate(all.size(), func(i) {
+      { all[i] with imageData = stripBase64(all[i].imageData); pdfData = stripBase64(all[i].pdfData) }
+    });
   };
 
   // ─── RESEARCH ITEMS ──────────────────────────────────────────────────────────
@@ -330,12 +397,24 @@ actor {
     };
   };
 
+  public shared ({ caller }) func clearAllResearchItems() : async () {
+    requireAdmin(caller);
+    researchItems.clear();
+  };
+
   public query func getResearchItems(offset : Nat, limit : Nat) : async [ResearchItem] {
-    sliceArray(researchItems.values().toArray(), offset, limit);
+    let all = researchItems.values().toArray();
+    let stripped = Array.tabulate(all.size(), func(i) {
+      { all[i] with imagePath = stripBase64(all[i].imagePath) }
+    });
+    sliceArray(stripped, offset, limit);
   };
 
   public query func listLiveResearchItems() : async [ResearchItem] {
-    researchItems.values().toArray().filter(func(r) { r.isLive });
+    let all = researchItems.values().toArray().filter(func(r) { r.isLive });
+    Array.tabulate(all.size(), func(i) {
+      { all[i] with imagePath = stripBase64(all[i].imagePath) }
+    });
   };
 
   // ─── HEALTH CHECK ────────────────────────────────────────────────────────────

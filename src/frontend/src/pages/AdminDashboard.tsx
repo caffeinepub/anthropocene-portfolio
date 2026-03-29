@@ -2358,6 +2358,26 @@ export function AdminDashboard() {
     }
   }, [actor, isActorFetching, loadSection, activeSection]);
 
+  const handleClearAll = async (section: string) => {
+    if (!actor) return;
+    const confirmed = window.confirm(
+      "Clear ALL entries in this section? This cannot be undone.",
+    );
+    if (!confirmed) return;
+    if (section === "art-portfolio") {
+      await actor.clearAllArtItems();
+    } else if (section === "students-works") {
+      await actor.clearAllStudentWorks();
+    } else if (section === "lectures") {
+      await actor.clearAllLectures();
+    } else if (section === "research") {
+      await actor.clearAllResearchItems();
+    } else if (section === "design-portfolio") {
+      await actor.clearAllDesignPortfolio();
+    }
+    void loadSection(section as NavSection);
+  };
+
   const handleLogout = () => {
     logout();
     navigate({ to: "/admin" });
@@ -3374,6 +3394,26 @@ export function AdminDashboard() {
               >
                 {isLoading ? "loading..." : `${currentRows.length} entries`}
               </span>
+              {isActorReady && activeSection !== "cv" && (
+                <button
+                  type="button"
+                  onClick={() => handleClearAll(activeSection)}
+                  data-ocid="admin.entries.delete_button"
+                  style={{
+                    fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+                    fontSize: "9px",
+                    letterSpacing: "0.15em",
+                    color: "rgba(140,58,58,0.8)",
+                    background: "none",
+                    border: "1px solid rgba(140,58,58,0.4)",
+                    padding: "4px 12px",
+                    cursor: "pointer",
+                    marginLeft: "0.5rem",
+                  }}
+                >
+                  CLEAR ALL
+                </button>
+              )}
             </div>
 
             <p

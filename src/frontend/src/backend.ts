@@ -148,6 +148,11 @@ export interface backendInterface {
     addResearchItem(title: string, description: string, imagePath: string): Promise<bigint>;
     addStudentWork(studentName: string, description: string, photoData: string, pdfData: string): Promise<bigint>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
+    clearAllArtItems(): Promise<void>;
+    clearAllDesignPortfolio(): Promise<void>;
+    clearAllLectures(): Promise<void>;
+    clearAllResearchItems(): Promise<void>;
+    clearAllStudentWorks(): Promise<void>;
     deleteArtItem(id: bigint): Promise<boolean>;
     deleteDesignPortfolio(id: bigint): Promise<boolean>;
     deleteLecture(id: bigint): Promise<boolean>;
@@ -435,6 +440,31 @@ export class Backend implements backendInterface {
             const result = await this.actor.getUserProfile(arg0);
             return from_candid_opt_n3(this._uploadFile, this._downloadFile, result);
         }
+    }
+    async clearAllArtItems(): Promise<void> {
+        if (this.processError) {
+            try { await this.actor.clearAllArtItems(); } catch (e) { this.processError(e); throw new Error("unreachable"); }
+        } else { await this.actor.clearAllArtItems(); }
+    }
+    async clearAllDesignPortfolio(): Promise<void> {
+        if (this.processError) {
+            try { await this.actor.clearAllDesignPortfolio(); } catch (e) { this.processError(e); throw new Error("unreachable"); }
+        } else { await this.actor.clearAllDesignPortfolio(); }
+    }
+    async clearAllLectures(): Promise<void> {
+        if (this.processError) {
+            try { await this.actor.clearAllLectures(); } catch (e) { this.processError(e); throw new Error("unreachable"); }
+        } else { await this.actor.clearAllLectures(); }
+    }
+    async clearAllResearchItems(): Promise<void> {
+        if (this.processError) {
+            try { await this.actor.clearAllResearchItems(); } catch (e) { this.processError(e); throw new Error("unreachable"); }
+        } else { await this.actor.clearAllResearchItems(); }
+    }
+    async clearAllStudentWorks(): Promise<void> {
+        if (this.processError) {
+            try { await this.actor.clearAllStudentWorks(); } catch (e) { this.processError(e); throw new Error("unreachable"); }
+        } else { await this.actor.clearAllStudentWorks(); }
     }
     async healthCheck(): Promise<boolean> {
         if (this.processError) {
