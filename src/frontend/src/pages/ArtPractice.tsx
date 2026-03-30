@@ -15,6 +15,11 @@ const PARAGRAPH_1 =
 const PARAGRAPH_2 =
   "Through an interdisciplinary approach of oil painting, printmaking, and performance, I translate these fragile conversations into tangible forms, as seen in the works submitted for this application. One piece juxtaposes my childhood memories of playing stapu on quiet, community-owned roads with today\u2019s hyper-capitalist reality in the Malappuram hills, where remote forest roads are engineered solely for heavy quarry trucks. Another work grounds this ecological violence in intimate human experience, highlighting a migrant quarry worker who spends his solitary Sundays buying weekly groceries, deeply missing his young daughter, Pari, back home. The submitted oil paintings, executed in an impressionistic style to capture the fleeting nature of memory, carry titles that are direct quotes from the people I speak with. Phrases like \u201cAre we drilling into the mountain, or just ourselves?\u201d, \u201cMaking a house by breaking a home,\u201d \u201cThere is no shoulder where I can rest my head,\u201d and \u201cMy village is still here,\u201d reflect the shared heartbreak of my surroundings. Together, these works question our shifting societal priorities and what it means to belong to a place that is constantly being erased.";
 
+// ─── Accessibility ───────────────────────────────────────────────────────────
+const prefersReducedMotion =
+  typeof window !== "undefined" &&
+  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
 // ─── WordSplit: word-by-word hover spans ──────────────────────────────────────
 
 function WordSplit({ text }: { text: string }) {
@@ -22,26 +27,17 @@ function WordSplit({ text }: { text: string }) {
   return (
     <>
       {words.map((word, i) => (
-        <motion.span
+        <span
           // biome-ignore lint/suspicious/noArrayIndexKey: static text, order never changes
           key={i}
           style={{
             display: "inline-block",
             marginRight: "0.28em",
-            position: "relative",
-            cursor: "default",
             lineHeight: 1.85,
-          }}
-          whileHover={{ scale: 1.05, zIndex: 10 }}
-          transition={{
-            type: "spring",
-            stiffness: 200,
-            damping: 28,
-            duration: 0.4,
           }}
         >
           {word}
-        </motion.span>
+        </span>
       ))}
     </>
   );
@@ -69,7 +65,11 @@ function ArtistStatement() {
       <motion.div
         initial={{ scaleX: 0 }}
         animate={{ scaleX: 1 }}
-        transition={{ duration: 1.4, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+        transition={{
+          duration: prefersReducedMotion ? 0 : 1.4,
+          delay: prefersReducedMotion ? 0 : 0.3,
+          ease: [0.16, 1, 0.3, 1],
+        }}
         style={{
           position: "absolute",
           top: "5rem",
@@ -449,7 +449,7 @@ export function ArtPractice() {
   const { setSuppressDefaultLabel } = useCursor();
   const [artworks, setArtworks] = useState<ArtPortfolioItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
   const audioRef = useRef<HTMLAudioElement>(null);
   const hasStartedRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -488,64 +488,32 @@ export function ArtPractice() {
       .finally(() => setIsLoading(false));
   }, []);
 
-  // Audio: autoplay attempt + fallback on first interaction
+  // Audio: set volume on mount, no autoplay
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-
-    // Gallery volume — atmospheric but audible
-    audio.volume = 0.045;
-
-    const tryPlay = () => {
-      if (hasStartedRef.current) return;
-      audio
-        .play()
-        .then(() => {
-          hasStartedRef.current = true;
-        })
-        .catch(() => {
-          // autoplay blocked — wait for user interaction
-        });
-    };
-
-    const onInteraction = () => {
-      if (hasStartedRef.current) return;
-      audio
-        .play()
-        .then(() => {
-          hasStartedRef.current = true;
-        })
-        .catch(() => {});
-      document.removeEventListener("click", onInteraction);
-      document.removeEventListener("touchstart", onInteraction);
-      document.removeEventListener("keydown", onInteraction);
-    };
-
-    tryPlay();
-    document.addEventListener("click", onInteraction);
-    document.addEventListener("touchstart", onInteraction);
-    document.addEventListener("keydown", onInteraction);
-
-    return () => {
-      document.removeEventListener("click", onInteraction);
-      document.removeEventListener("touchstart", onInteraction);
-      document.removeEventListener("keydown", onInteraction);
-    };
+    audio.volume = 0.35;
+    audio.muted = true;
   }, []);
 
   const handleToggleMute = () => {
     const audio = audioRef.current;
     if (!audio) return;
-    audio.muted = !audio.muted;
-    setIsMuted(audio.muted);
-    // If unmuting but play never started, start now
-    if (!audio.muted && !hasStartedRef.current) {
-      audio
-        .play()
-        .then(() => {
-          hasStartedRef.current = true;
-        })
-        .catch(() => {});
+    if (isMuted) {
+      // User is turning sound ON — unmute and start if not started
+      audio.muted = false;
+      if (!hasStartedRef.current) {
+        audio
+          .play()
+          .then(() => {
+            hasStartedRef.current = true;
+          })
+          .catch(() => {});
+      }
+      setIsMuted(false);
+    } else {
+      audio.muted = true;
+      setIsMuted(true);
     }
   };
 
@@ -655,10 +623,10 @@ export function ArtPractice() {
         >
           <motion.div
             data-ocid="art.loading_state"
-            animate={{ opacity: [0.2, 0.6, 0.2] }}
+            animate={{ opacity: prefersReducedMotion ? 0.4 : [0.2, 0.6, 0.2] }}
             transition={{
-              duration: 2,
-              repeat: Number.POSITIVE_INFINITY,
+              duration: prefersReducedMotion ? 0 : 2,
+              repeat: prefersReducedMotion ? 0 : Number.POSITIVE_INFINITY,
               ease: "easeInOut",
             }}
             style={{

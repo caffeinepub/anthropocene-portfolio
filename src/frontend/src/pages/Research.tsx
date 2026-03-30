@@ -715,10 +715,14 @@ function PlaceholderCard({
 }
 
 // ─── Research Page ────────────────────────────────────────────────────────────
+const prefersReducedMotion =
+  typeof window !== "undefined" &&
+  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
 export function Research() {
   const containerRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
   const [containerSize, setContainerSize] = useState({
     w: typeof window !== "undefined" ? window.innerWidth : 1440,
     h: typeof window !== "undefined" ? window.innerHeight : 900,
@@ -734,14 +738,12 @@ export function Research() {
   const [researchItems, setResearchItems] = useState<ResearchItem[]>([]);
   const [backendLoaded, setBackendLoaded] = useState(false);
 
-  // Start ambient audio on mount (browser may block autoplay until interaction)
+  // Set audio volume on mount — no autoplay, user initiates
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
     audio.volume = 0.2;
-    audio.play().catch(() => {
-      // Autoplay blocked — will retry on user interaction (Enter Canvas click)
-    });
+    audio.muted = true;
   }, []);
 
   // Measure container and respond to resize
@@ -886,7 +888,10 @@ export function Research() {
         <motion.nav
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 1, delay: 0.4 }}
+          transition={{
+            duration: prefersReducedMotion ? 0 : 1,
+            delay: prefersReducedMotion ? 0 : 0.4,
+          }}
           aria-label="Site navigation"
           style={{
             position: "fixed",
@@ -935,7 +940,7 @@ export function Research() {
       {/* biome-ignore lint/a11y/useMediaCaption: ambient background sound, no dialogue */}
       <audio
         ref={audioRef}
-        src="https://res.cloudinary.com/dvmvka9ll/video/upload/v1772701104/eryliaa-forest-birds-with-wind-and-crickets-445147_pvopc9.mp3"
+        src="/assets/eryliaa-forest-birds-with-wind-and-crickets-445147.mp3"
         loop
         preload="auto"
       />
@@ -946,11 +951,16 @@ export function Research() {
         data-ocid="research.toggle"
         onClick={() => {
           if (audioRef.current) {
-            audioRef.current.muted = !isMuted;
+            if (isMuted) {
+              audioRef.current.muted = false;
+              audioRef.current.play().catch(() => {});
+            } else {
+              audioRef.current.muted = true;
+            }
           }
           setIsMuted((prev) => !prev);
         }}
-        title={isMuted ? "Unmute" : "Mute"}
+        aria-label={isMuted ? "Unmute ambient sound" : "Mute ambient sound"}
         style={{
           position: "fixed",
           bottom: "1.5rem",
@@ -1089,10 +1099,6 @@ export function Research() {
               transition={{ duration: 0.7, delay: 0.7 }}
               onClick={() => {
                 setHasEntered(true);
-                // Resume audio after user interaction (browser autoplay policy)
-                if (audioRef.current) {
-                  audioRef.current.play().catch(() => {});
-                }
               }}
               whileHover={{ backgroundColor: "#a04444" }}
               style={{
