@@ -10,6 +10,11 @@ import { getBackend } from "../utils/getBackend";
 const DEFAULT_NARRATIVE =
   "I am a multidisciplinary design educator and art practitioner working across printmaking, interaction design, and ecological performance. Currently, I serve as an Assistant Professor of Interaction Design at KMCT School of Design, Kerala, where I teach UX research and UI fundamentals. Previously, I was the Design Head at PrepLadder (Unacademy), leading a creative team of 16 in illustration and animation. I hold a Master of Fine Arts and a Bachelor of Fine Arts in Printmaking and Design from the Government College of Art, Chandigarh. My practice is recognized internationally, supported by a Venice Biennale Travel Grant and a MAIR Residency Fellowship in 2024. I specialize in bridging traditional mediums like Etching and Pottery with digital mastery in Figma and the Adobe Creative Suite.";
 
+const prefersReducedMotion =
+  typeof window !== "undefined"
+    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    : false;
+
 function NarrativeWordSplit({ text }: { text: string }) {
   const words = text.split(" ");
   return (
@@ -63,7 +68,9 @@ function ProfessionalNarrativeCard() {
     <>
       <motion.div
         data-ocid="portfolio.narrative.card"
-        initial={{ opacity: 0, y: 24 }}
+        initial={
+          prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 24 }
+        }
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 1.0, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
         style={{
@@ -354,7 +361,9 @@ function PortfolioCard({ item, index }: PortfolioCardProps) {
   return (
     <motion.div
       data-ocid={`portfolio.card.item.${index + 1}`}
-      initial={{ opacity: 0, y: 20 }}
+      initial={
+        prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }
+      }
       animate={{ opacity: 1, y: 0 }}
       transition={{
         duration: 0.6,
@@ -672,7 +681,9 @@ export function FacultyPortfolio() {
       >
         {/* Page heading */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={
+            prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }
+          }
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
           style={{ marginBottom: "3.5rem" }}
@@ -739,7 +750,11 @@ export function FacultyPortfolio() {
         {!isLoading && items.length === 0 && (
           <motion.div
             data-ocid="portfolio.empty_state"
-            initial={{ opacity: 0, y: 16 }}
+            initial={
+              prefersReducedMotion
+                ? { opacity: 1, y: 0 }
+                : { opacity: 0, y: 16 }
+            }
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
             style={{ padding: "6rem 0", textAlign: "center" }}
@@ -777,24 +792,75 @@ export function FacultyPortfolio() {
         )}
       </main>
 
-      {/* Footer */}
+      {/* Footer with important project links */}
       <div
         style={{
-          position: "fixed",
-          bottom: "1.5rem",
-          left: "50%",
-          transform: "translateX(-50%)",
+          position: "relative",
           zIndex: 15,
-          pointerEvents: "none",
+          padding: "4rem 3rem 2.5rem",
+          borderTop: "1px solid rgba(229,224,216,0.08)",
+          marginTop: "6rem",
         }}
       >
+        {items.length > 0 && (
+          <div style={{ marginBottom: "2.5rem" }}>
+            <p
+              style={{
+                fontFamily: "Inter, system-ui, sans-serif",
+                fontSize: "9px",
+                letterSpacing: "0.35em",
+                color: "rgba(229,224,216,0.35)",
+                textTransform: "uppercase",
+                marginBottom: "1.25rem",
+              }}
+            >
+              Selected Projects
+            </p>
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "0.5rem 2rem",
+              }}
+            >
+              {items.map((item) => (
+                <a
+                  key={item.id}
+                  href={item.figmaUrl || item.videoUrl || "#"}
+                  target={item.figmaUrl || item.videoUrl ? "_blank" : undefined}
+                  rel="noopener noreferrer"
+                  style={{
+                    fontFamily: "Playfair Display, Georgia, serif",
+                    fontSize: "13px",
+                    color: "rgba(229,224,216,0.55)",
+                    textDecoration: "none",
+                    letterSpacing: "0.03em",
+                    transition: "color 0.3s ease",
+                    cursor: "pointer",
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLAnchorElement).style.color =
+                      "rgba(140,58,58,0.9)";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLAnchorElement).style.color =
+                      "rgba(229,224,216,0.55)";
+                  }}
+                >
+                  {item.title}
+                  {item.year ? ` — ${item.year}` : ""}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
         <p
           style={{
             fontFamily: "Inter, system-ui, sans-serif",
             fontSize: "10px",
             letterSpacing: "0.15em",
             color: "rgba(229,224,216,0.18)",
-            textAlign: "center",
+            textAlign: "left",
             margin: 0,
           }}
         >

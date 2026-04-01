@@ -742,7 +742,7 @@ export function Research() {
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    audio.volume = 0.2;
+    audio.volume = 0.1;
     audio.muted = true;
   }, []);
 
@@ -950,15 +950,23 @@ export function Research() {
         type="button"
         data-ocid="research.toggle"
         onClick={() => {
-          if (audioRef.current) {
-            if (isMuted) {
-              audioRef.current.muted = false;
-              audioRef.current.play().catch(() => {});
-            } else {
-              audioRef.current.muted = true;
-            }
+          const audio = audioRef.current;
+          if (!audio) return;
+          if (isMuted) {
+            audio.muted = false;
+            audio
+              .play()
+              .then(() => {
+                setIsMuted(false);
+              })
+              .catch(() => {
+                audio.muted = true;
+                setIsMuted(true);
+              });
+          } else {
+            audio.muted = true;
+            setIsMuted(true);
           }
-          setIsMuted((prev) => !prev);
         }}
         aria-label={isMuted ? "Unmute ambient sound" : "Mute ambient sound"}
         style={{

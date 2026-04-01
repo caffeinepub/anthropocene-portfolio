@@ -100,6 +100,7 @@ export function Home() {
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth < 768 : false,
   );
+  const [videoFailed, setVideoFailed] = useState(false);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -153,7 +154,7 @@ export function Home() {
     // Unmute video imperatively — React doesn't update the muted DOM attribute reactively
     if (videoRef.current) {
       videoRef.current.muted = false;
-      videoRef.current.volume = 0.15;
+      videoRef.current.volume = 0.075;
     }
 
     // Animate mask from flashlight to full reveal
@@ -186,21 +187,33 @@ export function Home() {
           zIndex: 1,
         }}
       >
-        <video
-          ref={videoRef}
-          src={VIDEO_URL}
-          autoPlay
-          loop
-          playsInline
-          muted
-          style={{
-            position: "absolute",
-            inset: 0,
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-          }}
-        />
+        {videoFailed ? (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background:
+                "linear-gradient(135deg, #0a0a0a 0%, #1a0e0e 50%, #0a0a0a 100%)",
+            }}
+          />
+        ) : (
+          <video
+            ref={videoRef}
+            src={VIDEO_URL}
+            autoPlay
+            loop
+            playsInline
+            muted
+            onError={() => setVideoFailed(true)}
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+            }}
+          />
+        )}
       </motion.div>
 
       {/* ── Dark overlay above video, below content ────────────────── */}

@@ -22,6 +22,11 @@ const AI_RESPONSES = [
   "Every invisible infrastructure was once a radical proposition.",
 ];
 
+const prefersReducedMotion =
+  typeof window !== "undefined"
+    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    : false;
+
 interface ChatMessage {
   id: string;
   role: "ai" | "user";
@@ -374,17 +379,45 @@ function LecturePDFModal({
         <X size={24} strokeWidth={1.5} />
       </button>
 
-      <embed
-        src={pdfData}
-        type="application/pdf"
-        title={`${title} — PDF`}
-        style={{
-          width: "100%",
-          height: "100%",
-          border: "none",
-          display: "block",
-        }}
-      />
+      {pdfData.startsWith("http") ? (
+        <iframe
+          src={pdfData}
+          title={`${title} — PDF`}
+          style={{
+            width: "100%",
+            height: "100%",
+            border: "none",
+            display: "block",
+            background: "#111111",
+          }}
+        />
+      ) : (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            height: "100%",
+            padding: "2rem",
+            textAlign: "center",
+          }}
+        >
+          <p
+            style={{
+              fontFamily: "Inter, system-ui, sans-serif",
+              fontSize: "13px",
+              letterSpacing: "0.05em",
+              color: "rgba(229,224,216,0.6)",
+              lineHeight: 1.7,
+            }}
+          >
+            PDF cannot be displayed in this browser.
+            <br />
+            The file may be stored in legacy format — please re-upload from
+            admin.
+          </p>
+        </div>
+      )}
     </motion.div>
   );
 }
@@ -430,7 +463,9 @@ function StudioCard({
       <motion.div style={{ y: parallaxY }}>
         <motion.div
           data-ocid={`lectures.list.item.${index + 1}`}
-          initial={{ opacity: 0, y: 32 }}
+          initial={
+            prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 32 }
+          }
           animate={{ opacity: 1, y: 0 }}
           transition={{
             duration: 0.9,

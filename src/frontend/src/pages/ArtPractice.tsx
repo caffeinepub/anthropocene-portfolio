@@ -492,7 +492,7 @@ export function ArtPractice() {
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    audio.volume = 0.35;
+    audio.volume = 0.175;
     audio.muted = true;
   }, []);
 
@@ -500,17 +500,17 @@ export function ArtPractice() {
     const audio = audioRef.current;
     if (!audio) return;
     if (isMuted) {
-      // User is turning sound ON — unmute and start if not started
       audio.muted = false;
-      if (!hasStartedRef.current) {
-        audio
-          .play()
-          .then(() => {
-            hasStartedRef.current = true;
-          })
-          .catch(() => {});
-      }
-      setIsMuted(false);
+      audio
+        .play()
+        .then(() => {
+          hasStartedRef.current = true;
+          setIsMuted(false);
+        })
+        .catch(() => {
+          audio.muted = true;
+          setIsMuted(true);
+        });
     } else {
       audio.muted = true;
       setIsMuted(true);

@@ -7,6 +7,11 @@ import { getBackend } from "../utils/getBackend";
 
 const GRAIN_SVG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`;
 
+const prefersReducedMotion =
+  typeof window !== "undefined"
+    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    : false;
+
 // ─── PDF Viewer Modal ──────────────────────────────────────────────────────────
 function PdfModal({
   pdfData,
@@ -119,16 +124,44 @@ function PdfModal({
           background: "#111111",
         }}
       >
-        <iframe
-          src={pdfData}
-          title={`${studentName} — PDF`}
-          style={{
-            width: "100%",
-            height: "100%",
-            border: "none",
-            background: "#111111",
-          }}
-        />
+        {pdfData.startsWith("http") ? (
+          <iframe
+            src={pdfData}
+            title={`${studentName} — PDF`}
+            style={{
+              width: "100%",
+              height: "100%",
+              border: "none",
+              background: "#111111",
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              height: "100%",
+              padding: "2rem",
+              textAlign: "center",
+            }}
+          >
+            <p
+              style={{
+                fontFamily: "Inter, system-ui, sans-serif",
+                fontSize: "13px",
+                letterSpacing: "0.05em",
+                color: "rgba(229,224,216,0.6)",
+                lineHeight: 1.7,
+              }}
+            >
+              PDF cannot be displayed in this browser.
+              <br />
+              The file may be stored in legacy format — please re-upload from
+              admin.
+            </p>
+          </div>
+        )}
       </motion.div>
 
       <p
@@ -173,7 +206,9 @@ function StudentCard({
     <>
       <motion.div
         data-ocid={`students.card.item.${index + 1}`}
-        initial={{ opacity: 0, y: 24 }}
+        initial={
+          prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 24 }
+        }
         animate={{ opacity: 1, y: 0 }}
         transition={{
           duration: 0.7,
@@ -467,7 +502,9 @@ export function FacultyStudentsWorks() {
       >
         {/* Page heading */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={
+            prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }
+          }
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
           style={{ marginBottom: "3.5rem" }}
@@ -526,7 +563,11 @@ export function FacultyStudentsWorks() {
         {!isLoading && works.length === 0 && (
           <motion.div
             data-ocid="students.empty_state"
-            initial={{ opacity: 0, y: 16 }}
+            initial={
+              prefersReducedMotion
+                ? { opacity: 1, y: 0 }
+                : { opacity: 0, y: 16 }
+            }
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
             style={{ padding: "6rem 0", textAlign: "center" }}
