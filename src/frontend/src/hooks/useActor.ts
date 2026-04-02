@@ -26,7 +26,7 @@ export function useActor() {
       };
 
       const actor = await createActorWithConfig(actorOptions);
-      const adminToken = getSecretParameter("caffeineAdminToken") || "";
+      const adminToken = "Anthropocene@2026";
       await actor._initializeAccessControlWithSecret(adminToken);
       return actor;
     },

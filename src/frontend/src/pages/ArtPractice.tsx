@@ -389,7 +389,7 @@ function AudioButton({ isMuted, onToggle }: AudioButtonProps) {
         position: "fixed",
         bottom: "2rem",
         right: "2rem",
-        zIndex: 60,
+        zIndex: 9999,
         background: "rgba(20,20,20,0.7)",
         backdropFilter: "blur(8px)",
         WebkitBackdropFilter: "blur(8px)",
@@ -451,7 +451,6 @@ export function ArtPractice() {
   const [isLoading, setIsLoading] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
   const audioRef = useRef<HTMLAudioElement>(null);
-  const hasStartedRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isNavMobile, setIsNavMobile] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth < 640 : false,
@@ -497,23 +496,19 @@ export function ArtPractice() {
   }, []);
 
   const handleToggleMute = () => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    if (isMuted) {
-      audio.muted = false;
-      audio
-        .play()
-        .then(() => {
-          hasStartedRef.current = true;
-          setIsMuted(false);
-        })
-        .catch(() => {
-          audio.muted = true;
-          setIsMuted(true);
-        });
-    } else {
-      audio.muted = true;
-      setIsMuted(true);
+    if (!audioRef.current) return;
+    const nextMuted = !isMuted;
+    // Update React state
+    setIsMuted(nextMuted);
+    // Directly update DOM element
+    audioRef.current.muted = nextMuted;
+    // Ensure playback has started (autoPlay covers initial load)
+    if (!nextMuted) {
+      audioRef.current.play().catch(() => {
+        // Browser blocked play — revert both state and DOM
+        setIsMuted(true);
+        if (audioRef.current) audioRef.current.muted = true;
+      });
     }
   };
 
@@ -539,6 +534,9 @@ export function ArtPractice() {
         ref={audioRef}
         src={galleryAudio}
         loop
+        autoPlay
+        playsInline
+        muted
         preload="auto"
         style={{ display: "none" }}
       />

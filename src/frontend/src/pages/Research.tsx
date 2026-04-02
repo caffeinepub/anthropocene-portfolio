@@ -942,6 +942,9 @@ export function Research() {
         ref={audioRef}
         src="/assets/eryliaa-forest-birds-with-wind-and-crickets-445147.mp3"
         loop
+        autoPlay
+        playsInline
+        muted
         preload="auto"
       />
 
@@ -950,22 +953,18 @@ export function Research() {
         type="button"
         data-ocid="research.toggle"
         onClick={() => {
-          const audio = audioRef.current;
-          if (!audio) return;
-          if (isMuted) {
-            audio.muted = false;
-            audio
-              .play()
-              .then(() => {
-                setIsMuted(false);
-              })
-              .catch(() => {
-                audio.muted = true;
-                setIsMuted(true);
-              });
-          } else {
-            audio.muted = true;
-            setIsMuted(true);
+          if (!audioRef.current) return;
+          const nextMuted = !isMuted;
+          // Update React state
+          setIsMuted(nextMuted);
+          // Directly update DOM element
+          audioRef.current.muted = nextMuted;
+          // Ensure playback started
+          if (!nextMuted) {
+            audioRef.current.play().catch(() => {
+              setIsMuted(true);
+              if (audioRef.current) audioRef.current.muted = true;
+            });
           }
         }}
         aria-label={isMuted ? "Unmute ambient sound" : "Mute ambient sound"}
@@ -973,7 +972,7 @@ export function Research() {
           position: "fixed",
           bottom: "1.5rem",
           right: "1.5rem",
-          zIndex: 120,
+          zIndex: 9999,
           background: "rgba(10,10,10,0.6)",
           backdropFilter: "blur(8px)",
           WebkitBackdropFilter: "blur(8px)",
