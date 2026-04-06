@@ -46,6 +46,8 @@ actor {
     studentName : Text;
     description : Text;
     photoData : Text;
+    // pdfData stores the FULL blob URL (with blob_hash, owner_id, project_id)
+    // or empty string if no PDF. Never stores raw base64.
     pdfData : Text;
     isLive : Bool;
   };
@@ -83,6 +85,16 @@ actor {
 
   var professionalNarrative = "I am a multidisciplinary design educator and art practitioner working across printmaking, interaction design, and ecological performance. Currently, I serve as an Assistant Professor of Interaction Design at KMCT School of Design, Kerala, where I teach UX research and UI fundamentals. Previously, I was the Design Head at PrepLadder (Unacademy), leading a creative team of 16 in illustration and animation. I hold a Master of Fine Arts and a Bachelor of Fine Arts in Printmaking and Design from the Government College of Art, Chandigarh. My practice is recognized internationally, supported by a Venice Biennale Travel Grant and a MAIR Residency Fellowship in 2024. I specialize in bridging traditional mediums like Etching and Pottery with digital mastery in Figma and the Adobe Creative Suite.";
   var cvLink = "";
+
+  // ─── CV PDF BLOB STORAGE (replaces raw cvPdfData) ───────────────────────────
+  // The backend stores the complete, pre-constructed blob URL.
+  // uploadToBlobStorage() in the frontend already builds this URL correctly
+  // (with blob_hash, owner_id, project_id). The admin simply passes that URL here.
+  // Legacy: if cvPdfData was set before this change, getCvPdfUrl still works
+  // because setCvPdfUrl replaces the stored value on first admin upload.
+  var cvPdfUrl = ""; // full blob URL, e.g. https://blob.caffeine.ai/v1/blob/?blob_hash=...&owner_id=...&project_id=...
+
+  // Keep cvPdfData as a deprecated alias — new uploads go to cvPdfUrl
   var cvPdfData = "";
 
   let lectures = Map.empty<Nat, LectureItem>();
@@ -154,12 +166,24 @@ actor {
     cvLink := link;
   };
 
+  // getCvPdf — returns the full blob URL (preferred) or legacy raw data.
+  // Frontend should treat non-http values as invalid and fall back to static CV.
   public query func getCvPdf() : async Text {
-    cvPdfData;
+    // Return the new URL field if set, otherwise fall back to legacy cvPdfData
+    if (cvPdfUrl.size() > 0) {
+      cvPdfUrl
+    } else {
+      stripBase64(cvPdfData)
+    };
   };
 
+  // setCvPdf — stores the full blob URL returned by uploadToBlobStorage().
+  // The frontend passes the complete URL (with blob_hash, owner_id, project_id).
+  // Do NOT pass raw file content or base64 here.
   public shared ({ caller }) func setCvPdf(data : Text) : async () {
     requireAdmin(caller);
+    cvPdfUrl := data;
+    // Also update legacy field for backward compat
     cvPdfData := data;
   };
 
@@ -216,6 +240,8 @@ actor {
   };
 
   // ─── STUDENT WORKS ───────────────────────────────────────────────────────────
+  // pdfData must be a full blob URL from uploadToBlobStorage().
+  // Never pass raw file bytes or base64 here.
 
   public shared ({ caller }) func addStudentWork(
     studentName : Text,
@@ -225,6 +251,7 @@ actor {
   ) : async Nat {
     requireAdmin(caller);
     let id = nextStudentWorkId;
+    // Store pdfData as-is (should be a full blob URL or empty string)
     studentWorks.add(id, { id; studentName; description; photoData; pdfData; isLive = false });
     nextStudentWorkId += 1;
     id;
@@ -251,6 +278,9 @@ actor {
     studentWorks.clear();
   };
 
+  // Returns items with base64 stripped. pdfData will be:
+  //   - a full blob URL (https://blob.caffeine.ai/...) for new uploads → renders correctly
+  //   - "" for old base64 uploads (stripped) → frontend shows "no PDF" state
   public query func getStudentWorks(offset : Nat, limit : Nat) : async [StudentWorkItem] {
     let all = studentWorks.values().toArray();
     let stripped = Array.tabulate(all.size(), func(i) {

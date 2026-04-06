@@ -191,8 +191,6 @@ const inputStyle: React.CSSProperties = {
   transition: "border-color 0.2s ease",
   cursor: "text",
   boxSizing: "border-box" as const,
-  userSelect: "text" as const,
-  WebkitUserSelect: "text" as const,
 };
 
 const labelStyle: React.CSSProperties = {
@@ -1655,8 +1653,6 @@ function ModalShell({
         style={{
           width: "100%",
           maxWidth: "460px",
-          maxHeight: "90vh",
-          overflowY: "auto",
           background: "#1a1a1a",
           border: "1px solid rgba(229,224,216,0.1)",
           borderRadius: "2px",
@@ -1740,9 +1736,6 @@ function FormField({
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        onPaste={(e) => {
-          e.stopPropagation();
-        }}
         placeholder={placeholder}
         style={inputStyle}
         onFocus={(e) => {
@@ -1777,9 +1770,6 @@ function FormTextarea({
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        onPaste={(e) => {
-          e.stopPropagation();
-        }}
         placeholder={placeholder}
         rows={4}
         style={{
@@ -3177,14 +3167,9 @@ export function AdminDashboard() {
                   type="button"
                   data-ocid="admin.add_entry.primary_button"
                   onClick={() => {
-                    if (canAdd) {
-                      setShowAddModal(true);
-                    } else if (!identity) {
-                      // Trigger II login if no identity
-                      iiLogin();
-                    }
+                    if (canAdd) setShowAddModal(true);
                   }}
-                  disabled={false}
+                  disabled={!canAdd}
                   onMouseEnter={() => {
                     if (canAdd) setIsHoveringAdd(true);
                   }}
@@ -3210,7 +3195,7 @@ export function AdminDashboard() {
                     cursor: "default",
                     transition: "background 0.2s ease",
                     flexShrink: 0,
-                    opacity: isActorFetching || isIIInitializing ? 0.6 : 1,
+                    opacity: !canAdd ? 0.6 : 1,
                   }}
                 >
                   {isActorFetching || isIIInitializing ? (
@@ -3224,9 +3209,7 @@ export function AdminDashboard() {
                   )}
                   {isActorFetching || isIIInitializing
                     ? "Connecting..."
-                    : !identity
-                      ? "Connect Identity First"
-                      : "Add New Entry"}
+                    : "Add New Entry"}
                 </button>
               );
             })()}

@@ -31,6 +31,10 @@ function PdfModal({
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
 
+  useEffect(() => {
+    console.log("[StudentWorks] Opening PDF:", pdfData);
+  }, [pdfData]);
+
   return (
     <motion.div
       data-ocid="students.pdf.modal"
@@ -88,6 +92,61 @@ function PdfModal({
         ×
       </button>
 
+      {/* Download button */}
+      <a
+        href={pdfData}
+        download
+        target="_blank"
+        rel="noreferrer"
+        data-ocid="students.pdf.download_button"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          position: "fixed",
+          top: "1.75rem",
+          right: "5rem",
+          display: "flex",
+          alignItems: "center",
+          gap: "0.4rem",
+          background: "#8C3A3A",
+          color: "#E5E0D8",
+          padding: "0.45rem 0.9rem",
+          fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+          fontSize: "8px",
+          letterSpacing: "0.22em",
+          textTransform: "uppercase",
+          textDecoration: "none",
+          zIndex: 310,
+          borderRadius: "0",
+          cursor: "default",
+          transition: "background 0.2s ease",
+        }}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLAnchorElement).style.background = "#a84545";
+        }}
+        onMouseLeave={(e) => {
+          (e.currentTarget as HTMLAnchorElement).style.background = "#8C3A3A";
+        }}
+        aria-label="Download PDF"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="10"
+          height="10"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="7 10 12 15 17 10" />
+          <line x1="12" y1="15" x2="12" y2="3" />
+        </svg>
+        Download
+      </a>
+
       {/* Header */}
       <motion.p
         initial={{ opacity: 0, y: -8 }}
@@ -127,7 +186,7 @@ function PdfModal({
       >
         {pdfData.startsWith("http") ? (
           <iframe
-            src={pdfData}
+            src={pdfData.startsWith("http") ? `${pdfData}#view=FitH` : pdfData}
             title={`${studentName} — PDF`}
             style={{
               width: "100%",
@@ -384,7 +443,15 @@ function StudentCard({
               <button
                 type="button"
                 data-ocid={`students.card.pdf.open_modal_button.${index + 1}`}
-                onClick={() => setShowPdf(true)}
+                onClick={() => {
+                  console.log(
+                    "[StudentWorks] PDF URL for item",
+                    item.id,
+                    ":",
+                    item.pdfData,
+                  );
+                  setShowPdf(true);
+                }}
                 style={{
                   background: "none",
                   border: "1px solid rgba(229,224,216,0.18)",
@@ -452,6 +519,11 @@ export function FacultyStudentsWorks() {
     getBackend()
       .then((b) => b.listLiveStudentWorks())
       .then((items) => {
+        console.log(
+          "[StudentWorks] Loaded student works:",
+          items.length,
+          "items",
+        );
         setWorks(items);
       })
       .catch(() => {

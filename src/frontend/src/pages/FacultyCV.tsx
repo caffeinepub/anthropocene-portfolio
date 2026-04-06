@@ -17,9 +17,13 @@ export function FacultyCV() {
     actor
       .getCvPdf()
       .then((data) => {
-        setPdfSrc(data?.trim() ? data : STATIC_CV);
+        console.log("[FacultyCV] PDF URL from backend:", data);
+        const src = data?.trim() ? data : STATIC_CV;
+        console.log("[FacultyCV] Using PDF src:", src);
+        setPdfSrc(src);
       })
-      .catch(() => {
+      .catch((err: unknown) => {
+        console.error("[FacultyCV] Failed to fetch CV PDF:", err);
         setPdfSrc(STATIC_CV);
       })
       .finally(() => setLoading(false));
@@ -29,12 +33,19 @@ export function FacultyCV() {
   useEffect(() => {
     const t = setTimeout(() => {
       if (loading) {
+        console.warn("[FacultyCV] Timeout fallback triggered, using static CV");
         setPdfSrc(STATIC_CV);
         setLoading(false);
       }
     }, 4000);
     return () => clearTimeout(t);
   }, [loading]);
+
+  const finalSrc = pdfSrc ?? STATIC_CV;
+  // Append #view=FitH only for real URLs (blob/http), not local paths
+  const iframeSrc = finalSrc.startsWith("http")
+    ? `${finalSrc}#view=FitH`
+    : finalSrc;
 
   return (
     <div
@@ -74,21 +85,78 @@ export function FacultyCV() {
           <Skeleton className="w-[80vw] h-[85vh] bg-[#1a1a1a]" />
         </div>
       ) : (
-        <embed
-          src={pdfSrc ?? STATIC_CV}
-          type="application/pdf"
-          title="Curriculum Vitae — Abhishek Tiwari"
-          data-ocid="cv.canvas_target"
-          style={{
-            flex: 1,
-            width: "100%",
-            height: "calc(100dvh - 120px)",
-            border: "none",
-            display: "block",
-            position: "relative",
-            zIndex: 5,
-          }}
-        />
+        <div style={{ flex: 1, position: "relative", zIndex: 5 }}>
+          <iframe
+            src={iframeSrc}
+            title="Curriculum Vitae — Abhishek Tiwari"
+            data-ocid="cv.canvas_target"
+            style={{
+              width: "100%",
+              height: "calc(100dvh - 120px)",
+              border: "none",
+              display: "block",
+            }}
+            allow="fullscreen"
+          />
+
+          {/* Floating Download button */}
+          <a
+            href={finalSrc}
+            download
+            target="_blank"
+            rel="noreferrer"
+            data-ocid="cv.download_button"
+            style={{
+              position: "fixed",
+              bottom: "2rem",
+              right: "2rem",
+              zIndex: 50,
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              background: "#8C3A3A",
+              color: "#E5E0D8",
+              padding: "0.6rem 1.1rem",
+              fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
+              fontSize: "9px",
+              letterSpacing: "0.22em",
+              textTransform: "uppercase",
+              textDecoration: "none",
+              border: "none",
+              borderRadius: "0",
+              cursor: "default",
+              transition: "background 0.2s ease, color 0.2s ease",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLAnchorElement).style.background =
+                "#a84545";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLAnchorElement).style.background =
+                "#8C3A3A";
+            }}
+            aria-label="Download CV PDF"
+          >
+            {/* Download icon */}
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Download CV
+          </a>
+        </div>
       )}
     </div>
   );
