@@ -87,6 +87,7 @@ export function FacultyCV() {
       ) : (
         <div style={{ flex: 1, position: "relative", zIndex: 5 }}>
           <iframe
+            key={iframeSrc}
             src={iframeSrc}
             title="Curriculum Vitae — Abhishek Tiwari"
             data-ocid="cv.canvas_target"

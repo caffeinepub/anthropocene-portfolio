@@ -27,7 +27,10 @@ import { useCursor } from "../context/CursorContext";
 import { useActor } from "../hooks/useActor";
 import { useAdminAuth } from "../hooks/useAdminAuth";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
-import { uploadToBlobStorage } from "../lib/blob-storage";
+import {
+  uploadPdfToBlobStorage,
+  uploadToBlobStorage,
+} from "../lib/blob-storage";
 
 // ─── Actor retry utilities ─────────────────────────────────────────────────────
 
@@ -347,7 +350,7 @@ function AddLectureModal({
     setError(null);
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
-      const url = await uploadToBlobStorage(bytes, (pct) =>
+      const url = await uploadPdfToBlobStorage(bytes, (pct) =>
         setPdfUploadProgress(pct),
       );
       setPdfUrl(url);
@@ -549,7 +552,7 @@ function AddStudentWorkModal({
     setPdfUploadProgress(0);
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
-      const url = await uploadToBlobStorage(bytes, (pct) =>
+      const url = await uploadPdfToBlobStorage(bytes, (pct) =>
         setPdfUploadProgress(pct),
       );
       setPdfUrl(url);
@@ -1080,7 +1083,7 @@ function AddDesignPortfolioModal({
     setPdfUploadProgress(0);
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
-      const url = await uploadToBlobStorage(bytes, (pct) =>
+      const url = await uploadPdfToBlobStorage(bytes, (pct) =>
         setPdfUploadProgress(pct),
       );
       setPdfUrl(url);
@@ -3590,8 +3593,9 @@ export function AdminDashboard() {
                           const bytes = new Uint8Array(
                             await file.arrayBuffer(),
                           );
-                          const url = await uploadToBlobStorage(bytes, (pct) =>
-                            setCvPdfUploadProgress(pct),
+                          const url = await uploadPdfToBlobStorage(
+                            bytes,
+                            (pct) => setCvPdfUploadProgress(pct),
                           );
                           setCvPdfUrl(url);
                           setCvPdfUploadProgress(null);

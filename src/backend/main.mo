@@ -83,19 +83,15 @@ actor {
 
   // ─── STORAGE ─────────────────────────────────────────────────────────────────
 
-  var professionalNarrative = "I am a multidisciplinary design educator and art practitioner working across printmaking, interaction design, and ecological performance. Currently, I serve as an Assistant Professor of Interaction Design at KMCT School of Design, Kerala, where I teach UX research and UI fundamentals. Previously, I was the Design Head at PrepLadder (Unacademy), leading a creative team of 16 in illustration and animation. I hold a Master of Fine Arts and a Bachelor of Fine Arts in Printmaking and Design from the Government College of Art, Chandigarh. My practice is recognized internationally, supported by a Venice Biennale Travel Grant and a MAIR Residency Fellowship in 2024. I specialize in bridging traditional mediums like Etching and Pottery with digital mastery in Figma and the Adobe Creative Suite.";
-  var cvLink = "";
+  stable var professionalNarrative = "I am a multidisciplinary design educator and art practitioner working across printmaking, interaction design, and ecological performance. Currently, I serve as an Assistant Professor of Interaction Design at KMCT School of Design, Kerala, where I teach UX research and UI fundamentals. Previously, I was the Design Head at PrepLadder (Unacademy), leading a creative team of 16 in illustration and animation. I hold a Master of Fine Arts and a Bachelor of Fine Arts in Printmaking and Design from the Government College of Art, Chandigarh. My practice is recognized internationally, supported by a Venice Biennale Travel Grant and a MAIR Residency Fellowship in 2024. I specialize in bridging traditional mediums like Etching and Pottery with digital mastery in Figma and the Adobe Creative Suite.";
+  stable var cvLink = "";
 
-  // ─── CV PDF BLOB STORAGE (replaces raw cvPdfData) ───────────────────────────
-  // The backend stores the complete, pre-constructed blob URL.
-  // uploadToBlobStorage() in the frontend already builds this URL correctly
-  // (with blob_hash, owner_id, project_id). The admin simply passes that URL here.
-  // Legacy: if cvPdfData was set before this change, getCvPdfUrl still works
-  // because setCvPdfUrl replaces the stored value on first admin upload.
-  var cvPdfUrl = ""; // full blob URL, e.g. https://blob.caffeine.ai/v1/blob/?blob_hash=...&owner_id=...&project_id=...
-
-  // Keep cvPdfData as a deprecated alias — new uploads go to cvPdfUrl
-  var cvPdfData = "";
+  // ─── CV PDF BLOB STORAGE ─────────────────────────────────────────────────────
+  // Stable variables survive canister upgrades. Both are needed:
+  // cvPdfUrl: the primary field — stores the full blob URL (with blob_hash, owner_id, project_id).
+  // cvPdfData: legacy fallback. New uploads write to both.
+  stable var cvPdfUrl = "";
+  stable var cvPdfData = "";
 
   let lectures = Map.empty<Nat, LectureItem>();
   let studentWorks = Map.empty<Nat, StudentWorkItem>();
@@ -103,11 +99,11 @@ actor {
   let designPortfolio = Map.empty<Nat, DesignPortfolioItem>();
   let researchItems = Map.empty<Nat, ResearchItem>();
 
-  var nextLectureId = 1;
-  var nextStudentWorkId = 1;
-  var nextArtId = 1;
-  var nextDesignPortfolioId = 1;
-  var nextResearchItemId = 1;
+  stable var nextLectureId = 1;
+  stable var nextStudentWorkId = 1;
+  stable var nextArtId = 1;
+  stable var nextDesignPortfolioId = 1;
+  stable var nextResearchItemId = 1;
 
   // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
