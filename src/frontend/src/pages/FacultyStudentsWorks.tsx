@@ -1,3 +1,4 @@
+import { Skeleton } from "@/components/ui/skeleton";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import type { StudentWorkItem } from "../backend.d";
@@ -546,15 +547,15 @@ export function FacultyStudentsWorks() {
             style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}
           >
             {[1, 2, 3].map((n) => (
-              <div
-                key={n}
-                style={{
-                  height: "280px",
-                  background: "rgba(229,224,216,0.03)",
-                  borderRadius: "2px",
-                  border: "1px solid rgba(229,224,216,0.05)",
-                }}
-              />
+              <div key={n} className="flex gap-8" style={{ padding: "1rem 0" }}>
+                <Skeleton className="w-[280px] h-[280px] flex-shrink-0 bg-[#1a1a1a]" />
+                <div className="flex flex-col gap-3 flex-1">
+                  <Skeleton className="h-6 w-2/3 bg-[#1a1a1a]" />
+                  <Skeleton className="h-4 w-full bg-[#1a1a1a]" />
+                  <Skeleton className="h-4 w-5/6 bg-[#1a1a1a]" />
+                  <Skeleton className="h-4 w-4/6 bg-[#1a1a1a]" />
+                </div>
+              </div>
             ))}
           </motion.div>
         )}

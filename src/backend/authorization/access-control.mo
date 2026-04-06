@@ -10,7 +10,7 @@ module {
   };
 
   public type AccessControlState = {
-    var adminAssigned : Bool;  // kept for stable variable compatibility — no longer used in logic
+    var adminAssigned : Bool;
     userRoles : Map.Map<Principal, UserRole>;
   };
 
@@ -21,15 +21,18 @@ module {
     };
   };
 
-  // Any authenticated principal providing the correct token becomes admin — no one-time gate.
+  // First principal that calls this function becomes admin, all other principals become users.
   public func initialize(state : AccessControlState, caller : Principal, adminToken : Text, userProvidedToken : Text) {
     if (caller.isAnonymous()) { return };
-    if (userProvidedToken == adminToken) {
-      state.userRoles.add(caller, #admin);
-    } else {
-      switch (state.userRoles.get(caller)) {
-        case (?#admin) {}; // keep existing admin role
-        case (_) { state.userRoles.add(caller, #user) };
+    switch (state.userRoles.get(caller)) {
+      case (?_) {};
+      case (null) {
+        if (not state.adminAssigned and userProvidedToken == adminToken) {
+          state.userRoles.add(caller, #admin);
+          state.adminAssigned := true;
+        } else {
+          state.userRoles.add(caller, #user);
+        };
       };
     };
   };
@@ -38,7 +41,9 @@ module {
     if (caller.isAnonymous()) { return #guest };
     switch (state.userRoles.get(caller)) {
       case (?role) { role };
-      case (null) { #guest };
+      case (null) {
+        Runtime.trap("User is not registered");
+      };
     };
   };
 

@@ -1,3 +1,4 @@
+import { Skeleton } from "@/components/ui/skeleton";
 import { useEffect, useState } from "react";
 import { AnthropoceneAnchor } from "../components/AnthropoceneAnchor";
 import { FacultySubNav } from "../components/FacultySubNav";
@@ -67,25 +68,10 @@ export function FacultyCV() {
       {loading ? (
         <div
           data-ocid="cv.loading_state"
-          style={{
-            flex: 1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
+          className="w-full h-screen flex items-center justify-center bg-[#0a0a0a]"
+          style={{ flex: 1 }}
         >
-          <p
-            style={{
-              fontFamily: '"JetBrains Mono", "Geist Mono", monospace',
-              fontSize: "10px",
-              letterSpacing: "0.3em",
-              textTransform: "uppercase",
-              color: "#8C3A3A",
-              animation: "pulse 2s ease-in-out infinite",
-            }}
-          >
-            Loading CV...
-          </p>
+          <Skeleton className="w-[80vw] h-[85vh] bg-[#1a1a1a]" />
         </div>
       ) : (
         <embed

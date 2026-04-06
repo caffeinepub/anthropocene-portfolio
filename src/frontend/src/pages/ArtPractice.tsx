@@ -1,7 +1,7 @@
+import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "@tanstack/react-router";
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
-import galleryAudio from "../../public/assets/oceanframemusic-romantic-video-483626.mp3";
 import type { ArtPortfolioItem } from "../backend.d";
 import { AnthropoceneAnchor } from "../components/AnthropoceneAnchor";
 import { useCursor } from "../context/CursorContext";
@@ -367,90 +367,12 @@ function EmptyGalleryPlaceholder({ index }: { index: number }) {
   );
 }
 
-// ─── Mute / Unmute button ─────────────────────────────────────────────────────
-
-interface AudioButtonProps {
-  isMuted: boolean;
-  onToggle: () => void;
-}
-
-function AudioButton({ isMuted, onToggle }: AudioButtonProps) {
-  const [isHovered, setIsHovered] = useState(false);
-
-  return (
-    <button
-      data-ocid="art.toggle"
-      type="button"
-      onClick={onToggle}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      aria-label={isMuted ? "Unmute gallery music" : "Mute gallery music"}
-      style={{
-        position: "fixed",
-        bottom: "2rem",
-        right: "2rem",
-        zIndex: 9999,
-        background: "rgba(20,20,20,0.7)",
-        backdropFilter: "blur(8px)",
-        WebkitBackdropFilter: "blur(8px)",
-        border: `1px solid ${isHovered ? "rgba(140,58,58,0.5)" : "rgba(229,224,216,0.1)"}`,
-        borderRadius: "50%",
-        width: "40px",
-        height: "40px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        cursor: "none",
-        transition: "border-color 0.25s ease",
-      }}
-    >
-      {isMuted ? (
-        /* Speaker muted icon */
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke={isHovered ? "rgba(140,58,58,0.9)" : "rgba(229,224,216,0.5)"}
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-          <line x1="23" y1="9" x2="17" y2="15" />
-          <line x1="17" y1="9" x2="23" y2="15" />
-        </svg>
-      ) : (
-        /* Speaker playing icon */
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke={isHovered ? "rgba(140,58,58,0.9)" : "rgba(229,224,216,0.5)"}
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-          <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-          <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-        </svg>
-      )}
-    </button>
-  );
-}
-
 // ─── ArtPractice page ─────────────────────────────────────────────────────────
 
 export function ArtPractice() {
   const { setSuppressDefaultLabel } = useCursor();
   const [artworks, setArtworks] = useState<ArtPortfolioItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isMuted, setIsMuted] = useState(true);
-  const audioRef = useRef<HTMLAudioElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isNavMobile, setIsNavMobile] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth < 640 : false,
@@ -487,31 +409,6 @@ export function ArtPractice() {
       .finally(() => setIsLoading(false));
   }, []);
 
-  // Audio: set volume on mount, no autoplay
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    audio.volume = 0.175;
-    audio.muted = true;
-  }, []);
-
-  const handleToggleMute = () => {
-    if (!audioRef.current) return;
-    const nextMuted = !isMuted;
-    // Update React state
-    setIsMuted(nextMuted);
-    // Directly update DOM element
-    audioRef.current.muted = nextMuted;
-    // Ensure playback has started (autoPlay covers initial load)
-    if (!nextMuted) {
-      audioRef.current.play().catch(() => {
-        // Browser blocked play — revert both state and DOM
-        setIsMuted(true);
-        if (audioRef.current) audioRef.current.muted = true;
-      });
-    }
-  };
-
   const showEmpty = !isLoading && artworks.length === 0;
   const placeholders = [0, 1, 2];
 
@@ -528,19 +425,6 @@ export function ArtPractice() {
         scrollbarColor: "rgba(140,58,58,0.15) transparent",
       }}
     >
-      {/* ── Ambient audio (hidden) ── */}
-      {/* biome-ignore lint/a11y/useMediaCaption: ambient instrumental music, no dialogue */}
-      <audio
-        ref={audioRef}
-        src={galleryAudio}
-        loop
-        autoPlay
-        playsInline
-        muted
-        preload="auto"
-        style={{ display: "none" }}
-      />
-
       {/* ── Fixed Navigation Overlay ── */}
       <div
         style={{
@@ -610,29 +494,17 @@ export function ArtPractice() {
       {/* ── Gallery sections or loading/empty state ── */}
       {isLoading ? (
         <section
+          data-ocid="art.loading_state"
           style={{
             width: "100%",
             minHeight: "100vh",
-            background: "#000000",
+            background: "#0d0d0d",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
           }}
         >
-          <motion.div
-            data-ocid="art.loading_state"
-            animate={{ opacity: prefersReducedMotion ? 0.4 : [0.2, 0.6, 0.2] }}
-            transition={{
-              duration: prefersReducedMotion ? 0 : 2,
-              repeat: prefersReducedMotion ? 0 : Number.POSITIVE_INFINITY,
-              ease: "easeInOut",
-            }}
-            style={{
-              width: "60px",
-              height: "1px",
-              background: "rgba(140,58,58,0.5)",
-            }}
-          />
+          <Skeleton className="w-[60vw] h-[70vh] bg-[#1a1a1a]" />
         </section>
       ) : showEmpty ? (
         placeholders.map((i) => <EmptyGalleryPlaceholder key={i} index={i} />)
@@ -664,9 +536,6 @@ export function ArtPractice() {
           © 2026. Abhishek Tiwari
         </p>
       </div>
-
-      {/* ── Mute/Unmute audio button ── */}
-      <AudioButton isMuted={isMuted} onToggle={handleToggleMute} />
     </div>
   );
 }

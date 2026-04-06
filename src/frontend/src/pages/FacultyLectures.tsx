@@ -1,3 +1,4 @@
+import { Skeleton } from "@/components/ui/skeleton";
 import { FileText, Maximize2, Minimize2, Send, X } from "lucide-react";
 import {
   AnimatePresence,
@@ -990,13 +991,15 @@ export function FacultyLectures() {
             {[1, 2].map((n) => (
               <div
                 key={n}
-                style={{
-                  height: "560px",
-                  background: "rgba(229,224,216,0.03)",
-                  borderRadius: "6px",
-                  border: "1px solid rgba(229,224,216,0.05)",
-                }}
-              />
+                className="flex flex-col gap-4 p-8"
+                style={{ border: "1px solid #1a1a1a" }}
+              >
+                <Skeleton className="h-6 w-3/4 bg-[#1a1a1a]" />
+                <Skeleton className="h-4 w-1/2 bg-[#1a1a1a]" />
+                <Skeleton className="h-[400px] w-full bg-[#1a1a1a]" />
+                <Skeleton className="h-4 w-full bg-[#1a1a1a]" />
+                <Skeleton className="h-4 w-5/6 bg-[#1a1a1a]" />
+              </div>
             ))}
           </motion.div>
         )}

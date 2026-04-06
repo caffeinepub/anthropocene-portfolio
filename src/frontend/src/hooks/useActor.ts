@@ -2,8 +2,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import type { backendInterface } from "../backend";
 import { createActorWithConfig } from "../config";
-import { getSecretParameter } from "../utils/urlParams";
 import { useInternetIdentity } from "./useInternetIdentity";
+
+// Admin token — hardcoded, never read from URL hash
+const ADMIN_TOKEN = "Anthropocene@2026";
 
 const ACTOR_QUERY_KEY = "actor";
 export function useActor() {
@@ -26,13 +28,12 @@ export function useActor() {
       };
 
       const actor = await createActorWithConfig(actorOptions);
-      const adminToken = "Anthropocene@2026";
-      await actor._initializeAccessControlWithSecret(adminToken);
+      // Always pass the hardcoded token — never read from URL hash
+      await actor._initializeAccessControlWithSecret(ADMIN_TOKEN);
       return actor;
     },
     // Only refetch when identity changes
     staleTime: Number.POSITIVE_INFINITY,
-    // This will cause the actor to be recreated when the identity changes
     enabled: true,
   });
 

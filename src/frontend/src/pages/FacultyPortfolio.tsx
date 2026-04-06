@@ -1,3 +1,4 @@
+import { Skeleton } from "@/components/ui/skeleton";
 import { FileText, Maximize2, Minimize2, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
@@ -111,20 +112,16 @@ function ProfessionalNarrativeCard() {
         {isLoading ? (
           <div
             data-ocid="portfolio.narrative.loading_state"
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "0.6rem",
-            }}
+            className="flex flex-col gap-2"
           >
             {[100, 85, 92, 78].map((w, i) => (
-              <div
+              <Skeleton
                 // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton
                 key={i}
+                className="bg-[#1a1a1a] animate-pulse"
                 style={{
                   height: "14px",
                   width: `${w}%`,
-                  background: "rgba(229,224,216,0.04)",
                   borderRadius: "1px",
                 }}
               />
@@ -733,15 +730,11 @@ export function FacultyPortfolio() {
             }}
           >
             {[1, 2, 3, 4].map((n) => (
-              <div
-                key={n}
-                style={{
-                  height: "280px",
-                  background: "rgba(229,224,216,0.03)",
-                  borderRadius: "2px",
-                  border: "1px solid rgba(229,224,216,0.05)",
-                }}
-              />
+              <div key={n} className="flex flex-col gap-3">
+                <Skeleton className="h-[280px] w-full bg-[#1a1a1a]" />
+                <Skeleton className="h-4 w-3/4 bg-[#1a1a1a]" />
+                <Skeleton className="h-3 w-1/2 bg-[#1a1a1a]" />
+              </div>
             ))}
           </motion.div>
         )}

@@ -1,5 +1,5 @@
+import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "@tanstack/react-router";
-import { Volume2, VolumeX } from "lucide-react";
 import { AnimatePresence, motion, useMotionValue } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ResearchItem } from "../backend.d";
@@ -109,7 +109,7 @@ function ExpandedOverlay({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        cursor: "default",
+        cursor: "pointer",
         padding: "2rem",
       }}
     >
@@ -721,8 +721,6 @@ const prefersReducedMotion =
 
 export function Research() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const [isMuted, setIsMuted] = useState(true);
   const [containerSize, setContainerSize] = useState({
     w: typeof window !== "undefined" ? window.innerWidth : 1440,
     h: typeof window !== "undefined" ? window.innerHeight : 900,
@@ -737,14 +735,6 @@ export function Research() {
 
   const [researchItems, setResearchItems] = useState<ResearchItem[]>([]);
   const [backendLoaded, setBackendLoaded] = useState(false);
-
-  // Set audio volume on mount — no autoplay, user initiates
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    audio.volume = 0.1;
-    audio.muted = true;
-  }, []);
 
   // Measure container and respond to resize
   useEffect(() => {
@@ -793,7 +783,7 @@ export function Research() {
         inset: 0,
         backgroundColor: "#000000",
         overflow: "hidden",
-        cursor: "default",
+        cursor: "pointer",
       }}
     >
       <CursorReset />
@@ -935,73 +925,6 @@ export function Research() {
           ))}
         </motion.nav>
       </div>
-
-      {/* ── Ambient forest audio — persists across overlay/canvas ── */}
-      {/* biome-ignore lint/a11y/useMediaCaption: ambient background sound, no dialogue */}
-      <audio
-        ref={audioRef}
-        src="/assets/eryliaa-forest-birds-with-wind-and-crickets-445147.mp3"
-        loop
-        autoPlay
-        playsInline
-        muted
-        preload="auto"
-      />
-
-      {/* Mute/unmute toggle — fixed bottom-right, always visible */}
-      <button
-        type="button"
-        data-ocid="research.toggle"
-        onClick={() => {
-          if (!audioRef.current) return;
-          const nextMuted = !isMuted;
-          // Update React state
-          setIsMuted(nextMuted);
-          // Directly update DOM element
-          audioRef.current.muted = nextMuted;
-          // Ensure playback started
-          if (!nextMuted) {
-            audioRef.current.play().catch(() => {
-              setIsMuted(true);
-              if (audioRef.current) audioRef.current.muted = true;
-            });
-          }
-        }}
-        aria-label={isMuted ? "Unmute ambient sound" : "Mute ambient sound"}
-        style={{
-          position: "fixed",
-          bottom: "1.5rem",
-          right: "1.5rem",
-          zIndex: 9999,
-          background: "rgba(10,10,10,0.6)",
-          backdropFilter: "blur(8px)",
-          WebkitBackdropFilter: "blur(8px)",
-          border: "1px solid rgba(229,224,216,0.1)",
-          borderRadius: "9999px",
-          padding: "0.5rem",
-          cursor: "default",
-          color: "#E5E0D8",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          lineHeight: 0,
-          transition: "background-color 0.2s ease",
-        }}
-        onMouseEnter={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.backgroundColor =
-            "rgba(140,58,58,0.5)";
-        }}
-        onMouseLeave={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.backgroundColor =
-            "rgba(10,10,10,0.6)";
-        }}
-      >
-        {isMuted ? (
-          <VolumeX size={14} strokeWidth={1.5} />
-        ) : (
-          <Volume2 size={14} strokeWidth={1.5} />
-        )}
-      </button>
 
       {/* ── Confirmation overlay ── */}
       <AnimatePresence>
@@ -1145,26 +1068,25 @@ export function Research() {
       >
         {/* Loading indicator — shown while waiting for backend response */}
         {!backendLoaded && (
-          <motion.div
+          <div
             data-ocid="research.loading_state"
-            animate={{ opacity: [0.2, 0.7, 0.2] }}
-            transition={{
-              duration: 1.8,
-              repeat: Number.POSITIVE_INFINITY,
-              ease: "easeInOut",
-            }}
             style={{
               position: "absolute",
               top: "50%",
               left: "50%",
               transform: "translate(-50%, -50%)",
-              width: "40px",
-              height: "2px",
-              background: "rgba(140,58,58,0.6)",
               pointerEvents: "none",
               zIndex: 20,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "1.5rem",
             }}
-          />
+          >
+            <Skeleton className="w-[80vw] h-[60vh] bg-[#1a1a1a]" />
+            <Skeleton className="h-3 w-[40vw] bg-[#1a1a1a]" />
+            <Skeleton className="h-3 w-[30vw] bg-[#1a1a1a]" />
+          </div>
         )}
 
         {/* Motoko backend image cards */}
